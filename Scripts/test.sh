@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="${0:A:h:h}"
 export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 
+"$PROJECT_ROOT/Scripts/verify-vendor.sh"
 swift test --package-path "$PROJECT_ROOT/RawGeoCore"
 swift test --package-path "$PROJECT_ROOT/MetadataInfrastructure"
 
@@ -15,4 +16,3 @@ xcodebuild \
   -derivedDataPath "$PROJECT_ROOT/.local/DerivedData" \
   CODE_SIGNING_ALLOWED=NO \
   test
-
