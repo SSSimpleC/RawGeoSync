@@ -1,0 +1,36 @@
+.DS_Store
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.local/
+*.log
+*.env
+
+# User photographs and tracks never belong in source control.
+*.nef
+*.NEF
+*.nrw
+*.NRW
+*.arw
+*.ARW
+*.cr2
+*.CR2
+*.cr3
+*.CR3
+*.raf
+*.RAF
+*.orf
+*.ORF
+*.rw2
+*.RW2
+*.dng
+*.DNG
+*.gpx
+*.GPX
+
+# Synthetic fixtures are explicitly allowed.
+!**/Tests/Fixtures/*.gpx
+!**/Tests/Fixtures/**/*.gpx
+
