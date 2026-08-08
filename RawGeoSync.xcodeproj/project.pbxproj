@@ -1,0 +1,439 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000101 /* RawGeoSyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000201 /* RawGeoSyncApp.swift */; };
+		A10000000000000000000102 /* WorkflowModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* WorkflowModels.swift */; };
+		A10000000000000000000103 /* GeoWorkflowService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* GeoWorkflowService.swift */; };
+		A10000000000000000000104 /* WorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000204 /* WorkspaceViewModel.swift */; };
+		A10000000000000000000105 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000205 /* AppShellView.swift */; };
+		A10000000000000000000106 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000206 /* SharedComponents.swift */; };
+		A10000000000000000000107 /* SourceSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000207 /* SourceSetupView.swift */; };
+		A10000000000000000000108 /* AnalysisWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000208 /* AnalysisWorkspaceView.swift */; };
+		A10000000000000000000109 /* ApplyResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000209 /* ApplyResultView.swift */; };
+		A10000000000000000000110 /* MapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000211 /* MapKit.framework */; };
+		A10000000000000000000111 /* RawGeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000601 /* RawGeoCore */; };
+		A10000000000000000000112 /* MetadataInfrastructure in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000602 /* MetadataInfrastructure */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000201 /* RawGeoSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawGeoSyncApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000202 /* WorkflowModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000203 /* GeoWorkflowService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoWorkflowService.swift; sourceTree = "<group>"; };
+		A10000000000000000000204 /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000205 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		A10000000000000000000206 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
+		A10000000000000000000207 /* SourceSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceSetupView.swift; sourceTree = "<group>"; };
+		A10000000000000000000208 /* AnalysisWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisWorkspaceView.swift; sourceTree = "<group>"; };
+		A10000000000000000000209 /* ApplyResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplyResultView.swift; sourceTree = "<group>"; };
+		A10000000000000000000211 /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
+		A10000000000000000000212 /* RawGeoSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawGeoSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000110 /* MapKit.framework in Frameworks */,
+				A10000000000000000000111 /* RawGeoCore in Frameworks */,
+				A10000000000000000000112 /* MetadataInfrastructure in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000401 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000402 /* RawGeoSyncApp */,
+				A10000000000000000000407 /* Frameworks */,
+				A10000000000000000000408 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000402 /* RawGeoSyncApp */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000201 /* RawGeoSyncApp.swift */,
+				A10000000000000000000403 /* Models */,
+				A10000000000000000000404 /* Services */,
+				A10000000000000000000405 /* ViewModels */,
+				A10000000000000000000406 /* Views */,
+			);
+			path = RawGeoSyncApp;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000403 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000202 /* WorkflowModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000404 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000203 /* GeoWorkflowService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000405 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000204 /* WorkspaceViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000406 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000205 /* AppShellView.swift */,
+				A10000000000000000000207 /* SourceSetupView.swift */,
+				A10000000000000000000208 /* AnalysisWorkspaceView.swift */,
+				A10000000000000000000209 /* ApplyResultView.swift */,
+				A10000000000000000000409 /* Components */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000407 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000211 /* MapKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000408 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000212 /* RawGeoSync.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000409 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000206 /* SharedComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000501 /* RawGeoSync */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000702 /* Build configuration list for PBXNativeTarget "RawGeoSync" */;
+			buildPhases = (
+				A10000000000000000000302 /* Sources */,
+				A10000000000000000000301 /* Frameworks */,
+				A10000000000000000000303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RawGeoSync;
+			packageProductDependencies = (
+				A10000000000000000000601 /* RawGeoCore */,
+				A10000000000000000000602 /* MetadataInfrastructure */,
+			);
+			productName = RawGeoSync;
+			productReference = A10000000000000000000212 /* RawGeoSync.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000502 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					A10000000000000000000501 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000701 /* Build configuration list for PBXProject "RawGeoSync" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				zh_CN,
+			);
+			mainGroup = A10000000000000000000401;
+			packageReferences = (
+				A10000000000000000000603 /* XCLocalSwiftPackageReference "RawGeoCore" */,
+				A10000000000000000000604 /* XCLocalSwiftPackageReference "MetadataInfrastructure" */,
+			);
+			productRefGroup = A10000000000000000000408 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000501 /* RawGeoSync */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000101 /* RawGeoSyncApp.swift in Sources */,
+				A10000000000000000000102 /* WorkflowModels.swift in Sources */,
+				A10000000000000000000103 /* GeoWorkflowService.swift in Sources */,
+				A10000000000000000000104 /* WorkspaceViewModel.swift in Sources */,
+				A10000000000000000000105 /* AppShellView.swift in Sources */,
+				A10000000000000000000106 /* SharedComponents.swift in Sources */,
+				A10000000000000000000107 /* SourceSetupView.swift in Sources */,
+				A10000000000000000000108 /* AnalysisWorkspaceView.swift in Sources */,
+				A10000000000000000000109 /* ApplyResultView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000000000000000000802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+		};
+			name = Release;
+		};
+		A10000000000000000000803 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RawGeoSync;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.simplechen.RawGeoSync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A10000000000000000000804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RawGeoSync;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.simplechen.RawGeoSync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000701 /* Build configuration list for PBXProject "RawGeoSync" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000801 /* Debug */,
+				A10000000000000000000802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000702 /* Build configuration list for PBXNativeTarget "RawGeoSync" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000803 /* Debug */,
+				A10000000000000000000804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A10000000000000000000603 /* XCLocalSwiftPackageReference "RawGeoCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RawGeoCore;
+		};
+		A10000000000000000000604 /* XCLocalSwiftPackageReference "MetadataInfrastructure" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MetadataInfrastructure;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000601 /* RawGeoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000603 /* XCLocalSwiftPackageReference "RawGeoCore" */;
+			productName = RawGeoCore;
+		};
+		A10000000000000000000602 /* MetadataInfrastructure */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000604 /* XCLocalSwiftPackageReference "MetadataInfrastructure" */;
+			productName = MetadataInfrastructure;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000000000000000000502 /* Project object */;
+}
