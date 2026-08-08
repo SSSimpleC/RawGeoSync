@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct RawGeoSyncDesktopApp: App {
-  @StateObject private var workspace = WorkspaceViewModel(service: DemoGeoWorkflowService())
+  @StateObject private var workspace = WorkspaceViewModel(service: LiveGeoWorkflowService())
 
   var body: some Scene {
     WindowGroup {

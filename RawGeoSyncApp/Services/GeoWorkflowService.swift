@@ -7,9 +7,12 @@ protocol GeoWorkflowServicing: Sendable {
   func analysisEvents(for configuration: SourceConfiguration) -> AsyncThrowingStream<
     AnalysisEvent, Error
   >
+  func previewWrite(matches: [PhotoMatch], configuration: SourceConfiguration) async throws
+    -> WritePreview
   func applyEvents(matches: [PhotoMatch], configuration: SourceConfiguration)
     -> AsyncThrowingStream<ApplyEvent, Error>
   func undo(report: ApplicationReport, matches: [PhotoMatch]) async throws -> [PhotoMatch]
+  func interruptedTransactionCount() async throws -> Int
 }
 
 struct DemoGeoWorkflowService: GeoWorkflowServicing {
@@ -50,6 +53,19 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
     }
   }
 
+  func previewWrite(matches: [PhotoMatch], configuration: SourceConfiguration) async throws
+    -> WritePreview
+  {
+    let selected = matches.count(where: { $0.isSelectedForWrite && $0.coordinate != nil })
+    return WritePreview(
+      selectedCount: selected,
+      createCount: selected,
+      updateCount: 0,
+      alreadyAppliedCount: 0,
+      conflictCount: 0
+    )
+  }
+
   func applyEvents(
     matches: [PhotoMatch],
     configuration: SourceConfiguration
@@ -57,7 +73,7 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
     AsyncThrowingStream { continuation in
       let task = Task {
         do {
-          let eligible = matches.filter { $0.coordinate != nil }
+          let eligible = matches.filter { $0.isSelectedForWrite && $0.coordinate != nil }
           let steps = max(eligible.count, 1)
           var updated = matches
 
@@ -82,6 +98,7 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
 
           let now = Date()
           let report = ApplicationReport(
+            transactionID: nil,
             startedAt: now.addingTimeInterval(-0.6),
             finishedAt: now,
             appliedCount: eligible.count,
@@ -111,6 +128,8 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
       return copy
     }
   }
+
+  func interruptedTransactionCount() async throws -> Int { 0 }
 
   private func makeDemoSnapshot(configuration: SourceConfiguration) -> AnalysisSnapshot {
     let calendar = Calendar(identifier: .gregorian)
@@ -163,7 +182,9 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
         method: method,
         sourceLocationAccuracy: .notProvided,
         note: isUnmatched
-          ? "长间隔且空间跨度过大，已阻止自动匹配" : (isStationary ? "长时间内位置变化较小，按停留区间处理" : "前后轨迹点连续，已执行线性插值")
+          ? "长间隔且空间跨度过大，已阻止自动匹配" : (isStationary ? "长时间内位置变化较小，按停留区间处理" : "前后轨迹点连续，已执行线性插值"),
+        isSelectedForWrite: confidence == .reliable,
+        hasExistingGPS: false
       )
     }
 

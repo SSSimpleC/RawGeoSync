@@ -38,8 +38,8 @@ struct SourceConfiguration: Equatable, Sendable {
   var photoDirectoryURL: URL?
   var timeZoneIdentifier = "Asia/Shanghai"
   var cameraClockOffsetSeconds = 0
+  var writeAltitude = false
   var outputMode: OutputMode = .xmpSidecar
-  var existingGPSPolicy: ExistingGPSPolicy = .skip
 
   var isReady: Bool { trackURL != nil && photoDirectoryURL != nil }
 
@@ -53,20 +53,6 @@ enum OutputMode: String, CaseIterable, Identifiable, Sendable {
 
   var id: String { rawValue }
   var title: String { "XMP Sidecar（推荐）" }
-}
-
-enum ExistingGPSPolicy: String, CaseIterable, Identifiable, Sendable {
-  case skip
-  case review
-
-  var id: String { rawValue }
-
-  var title: String {
-    switch self {
-    case .skip: "跳过已有 GPS"
-    case .review: "标记为待确认"
-    }
-  }
 }
 
 struct GeoCoordinate: Hashable, Codable, Sendable {
@@ -124,8 +110,11 @@ enum MatchConfidence: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum MatchMethod: String, Sendable {
+  case exact
   case interpolated
+  case reviewInterpolation
   case stationary
+  case nearest
   case previousPoint
   case nextPoint
   case midpoint
@@ -134,8 +123,11 @@ enum MatchMethod: String, Sendable {
 
   var title: String {
     switch self {
+    case .exact: "精确轨迹点"
     case .interpolated: "轨迹插值"
+    case .reviewInterpolation: "待确认插值"
     case .stationary: "停留点"
+    case .nearest: "最近轨迹点"
     case .previousPoint: "前点"
     case .nextPoint: "后点"
     case .midpoint: "中点"
@@ -188,6 +180,8 @@ struct PhotoMatch: Identifiable, Hashable, Sendable {
   var method: MatchMethod
   var sourceLocationAccuracy: SourceLocationAccuracy
   var note: String
+  var isSelectedForWrite: Bool
+  var hasExistingGPS: Bool
   var verification: VerificationState = .pending
 
   var fileName: String { fileURL.lastPathComponent }
@@ -237,6 +231,7 @@ enum BatchAssignmentStrategy: Sendable {
 }
 
 struct ApplicationReport: Sendable {
+  var transactionID: UUID?
   var startedAt: Date
   var finishedAt: Date
   var appliedCount: Int
@@ -245,6 +240,23 @@ struct ApplicationReport: Sendable {
   var failedCount: Int
   var outputDirectoryURL: URL?
   var isUndone = false
+}
+
+struct WritePreview: Identifiable, Sendable {
+  let id = UUID()
+  var selectedCount: Int
+  var createCount: Int
+  var updateCount: Int
+  var alreadyAppliedCount: Int
+  var conflictCount: Int
+  var conflictFileURLs: Set<URL> = []
+
+  var writableCount: Int { createCount + updateCount }
+
+  var message: String {
+    "将新建 \(createCount) 个、更新 \(updateCount) 个 XMP；"
+      + "\(alreadyAppliedCount) 个已包含相同位置，\(conflictCount) 个冲突将跳过。"
+  }
 }
 
 enum AnalysisEvent: Sendable {

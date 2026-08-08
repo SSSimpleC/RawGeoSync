@@ -37,6 +37,21 @@ struct AppShellView: View {
         Text(workspace.errorMessage ?? "未知错误")
       }
     )
+    .alert(
+      "发现中断的事务",
+      isPresented: Binding(
+        get: { workspace.recoveryMessage != nil },
+        set: { if !$0 { workspace.recoveryMessage = nil } }
+      ),
+      actions: {
+        Button("我知道了", role: .cancel) {
+          workspace.recoveryMessage = nil
+        }
+      },
+      message: {
+        Text(workspace.recoveryMessage ?? "")
+      }
+    )
   }
 }
 

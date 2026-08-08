@@ -22,14 +22,29 @@ struct AnalysisWorkspaceView: View {
       actionFooter
     }
     .overlay {
-      if workspace.isApplying {
+      if workspace.isPreparingWrite || workspace.isApplying {
         ProgressOverlay(
-          title: "正在创建并复读验证 XMP",
+          title: workspace.isPreparingWrite ? "正在生成只读写入计划" : "正在创建并复读验证 XMP",
           message: workspace.progressMessage,
           fraction: workspace.progressFraction,
           cancel: workspace.cancelCurrentOperation
         )
       }
+    }
+    .alert(item: $workspace.writePreview) { preview in
+      Alert(
+        title: Text("确认 XMP 写入计划"),
+        message: Text(preview.message),
+        primaryButton: .cancel(Text("返回复核")),
+        secondaryButton: .default(
+          Text(preview.writableCount > 0 ? "确认写入" : "没有可写项目"),
+          action: {
+            if preview.writableCount > 0 {
+              workspace.confirmApply()
+            }
+          }
+        )
+      )
     }
   }
 
@@ -122,6 +137,19 @@ struct AnalysisWorkspaceView: View {
       Divider()
 
       Table(workspace.filteredMatches, selection: $workspace.selectedMatches) {
+        TableColumn("写入") { match in
+          Toggle(
+            "写入 \(match.fileName)",
+            isOn: Binding(
+              get: { match.isSelectedForWrite },
+              set: { workspace.setWriteSelection($0, for: match.id) }
+            )
+          )
+          .labelsHidden()
+          .disabled(match.coordinate == nil)
+        }
+        .width(42)
+
         TableColumn("照片") { match in
           HStack(spacing: 7) {
             Image(systemName: "photo")
@@ -193,9 +221,9 @@ struct AnalysisWorkspaceView: View {
       }
 
       Button {
-        workspace.apply()
+        workspace.prepareApply()
       } label: {
-        Label("应用并验证 \(workspace.writableCount) 张", systemImage: "checkmark.shield")
+        Label("预检并应用 \(workspace.writableCount) 张", systemImage: "checkmark.shield")
           .frame(minWidth: 150)
       }
       .buttonStyle(.borderedProminent)

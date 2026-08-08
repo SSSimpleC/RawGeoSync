@@ -15,4 +15,4 @@ xcodebuild \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$PROJECT_ROOT/.local/DerivedData" \
   CODE_SIGNING_ALLOWED=NO \
-  test
+  build

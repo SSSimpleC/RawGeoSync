@@ -7,7 +7,7 @@ export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 SWIFT_FILES=()
 while IFS= read -r file; do
   SWIFT_FILES+=("$file")
-done < <(find "$PROJECT_ROOT/RawGeoCore" "$PROJECT_ROOT/MetadataInfrastructure" "$PROJECT_ROOT/RawGeoSyncApp" -name '*.swift' -type f | sort)
+done < <(find "$PROJECT_ROOT/RawGeoCore" "$PROJECT_ROOT/MetadataInfrastructure" "$PROJECT_ROOT/RawGeoSyncApp" "$PROJECT_ROOT/Tools" -path '*/.build' -prune -o -name '*.swift' -type f -print | sort)
 
 if (( ${#SWIFT_FILES[@]} == 0 )); then
   exit 0

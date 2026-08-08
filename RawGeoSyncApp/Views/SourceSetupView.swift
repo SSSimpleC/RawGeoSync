@@ -45,7 +45,7 @@ struct SourceSetupView: View {
           )
           SourcePickerCard(
             title: "RAW 文件夹",
-            description: "首版针对 Nikon NEF；原始 RAW 始终保持只读。",
+            description: "完整验证 Nikon NEF；其他常见 RAW/JPEG/TIFF 为实验性，原文件始终只读。",
             systemImage: "camera.aperture",
             url: workspace.configuration.photoDirectoryURL,
             actionTitle: "选择文件夹…",
@@ -120,17 +120,25 @@ struct SourceSetupView: View {
 
             GridRow {
               SettingLabel(
+                title: "写入海拔",
+                detail: "默认关闭；仅可靠匹配且轨迹提供海拔时写入",
+                systemImage: "mountain.2"
+              )
+              Toggle("写入可用海拔", isOn: $workspace.configuration.writeAltitude)
+                .toggleStyle(.switch)
+            }
+
+            Divider().gridCellUnsizedAxes(.horizontal)
+
+            GridRow {
+              SettingLabel(
                 title: "已有坐标",
-                detail: "避免无意覆盖相机或既有 sidecar 中的 GPS",
+                detail: "默认取消选择；在预览中重新勾选才表示明确替换",
                 systemImage: "shield.checkered"
               )
-              Picker("", selection: $workspace.configuration.existingGPSPolicy) {
-                ForEach(ExistingGPSPolicy.allCases) { policy in
-                  Text(policy.title).tag(policy)
-                }
-              }
-              .labelsHidden()
-              .frame(maxWidth: 270, alignment: .leading)
+              Text("先跳过，逐项确认")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 270, alignment: .leading)
             }
           }
           .padding(.top, 8)
