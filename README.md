@@ -63,3 +63,11 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 ## 许可证
 
 RawGeoSync 使用 MIT License。内置 ExifTool 及其 Perl 库遵循上游各自许可证，详见 `Vendor/ExifTool` 中的第三方声明。
+
+## 项目规范
+
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
+- [隐私说明](Docs/PRIVACY.md)
+- [发布清单](Docs/RELEASE.md)
+- [更新日志](CHANGELOG.md)
