@@ -7,6 +7,7 @@ TEMP_ROOT="${TMPDIR:-/tmp}"
 DERIVED_DATA="$(mktemp -d "${TEMP_ROOT%/}/RawGeoSync-Release.XXXXXX")"
 OUTPUT_ROOT="${RAWGEOSYNC_INSTALL_DIR:-${HOME}/Applications}"
 FINAL_APP="$OUTPUT_ROOT/RawGeoSync.app"
+PREVIOUS_APP="$OUTPUT_ROOT/.RawGeoSync.app.previous"
 
 cleanup() {
   case "$DERIVED_DATA" in
@@ -35,12 +36,25 @@ ditto --noqtn "$DERIVED_DATA/Build/Products/Release/RawGeoSync.app" "$STAGED_APP
 xattr -dr com.apple.quarantine "$STAGED_APP" 2>/dev/null || true
 codesign --force --sign - --timestamp=none "$STAGED_APP"
 codesign --verify --deep --strict "$STAGED_APP"
-if [[ -e "$FINAL_APP" ]]; then
-  find "$FINAL_APP" -depth -delete
+if [[ -e "$PREVIOUS_APP" ]]; then
+  find "$PREVIOUS_APP" -depth -delete
 fi
-mv "$STAGED_APP" "$FINAL_APP"
+if [[ -e "$FINAL_APP" ]]; then
+  mv "$FINAL_APP" "$PREVIOUS_APP"
+fi
+INSTALL_OK=0
+if mv "$STAGED_APP" "$FINAL_APP"; then
+  INSTALL_OK=1
+fi
 xattr -dr com.apple.quarantine "$FINAL_APP" 2>/dev/null || true
-codesign --verify --deep --strict "$FINAL_APP"
+if (( INSTALL_OK )) && codesign --verify --deep --strict "$FINAL_APP"; then
+  [[ ! -e "$PREVIOUS_APP" ]] || find "$PREVIOUS_APP" -depth -delete
+else
+  [[ ! -e "$FINAL_APP" ]] || find "$FINAL_APP" -depth -delete
+  [[ ! -e "$PREVIOUS_APP" ]] || mv "$PREVIOUS_APP" "$FINAL_APP"
+  print -u2 "Release 应用安装验证失败；已恢复上一版本。"
+  exit 1
+fi
 
 print "Release 应用已更新："
 print "$FINAL_APP"

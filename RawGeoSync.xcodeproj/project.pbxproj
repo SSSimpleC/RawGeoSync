@@ -27,7 +27,18 @@
 		A10000000000000000000118 /* LiveGeoWorkflowService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000213 /* LiveGeoWorkflowService.swift */; };
 		A10000000000000000000119 /* RawGeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000601 /* RawGeoCore */; };
 		A10000000000000000000120 /* MetadataInfrastructure in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000602 /* MetadataInfrastructure */; };
+		A10000000000000000000121 /* WorkspaceSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000217 /* WorkspaceSelectionTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A10000000000000000000901 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000502 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000501;
+			remoteInfo = RawGeoSync;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000201 /* RawGeoSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawGeoSyncApp.swift; sourceTree = "<group>"; };
@@ -45,6 +56,8 @@
 		A10000000000000000000214 /* ExifTool */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ExifTool; path = Vendor/ExifTool; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000215 /* SmokeMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeMain.swift; sourceTree = "<group>"; };
 		A10000000000000000000216 /* RawGeoSyncSmoke */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RawGeoSyncSmoke; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000217 /* WorkspaceSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSelectionTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000218 /* RawGeoSyncAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawGeoSyncAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +80,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000000000000000000306 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -75,6 +95,7 @@
 			children = (
 				A10000000000000000000402 /* RawGeoSyncApp */,
 				A10000000000000000000410 /* Tools */,
+				A10000000000000000000412 /* RawGeoSyncAppTests */,
 				A10000000000000000000214 /* ExifTool */,
 				A10000000000000000000407 /* Frameworks */,
 				A10000000000000000000408 /* Products */,
@@ -143,6 +164,7 @@
 			children = (
 				A10000000000000000000212 /* RawGeoSync.app */,
 				A10000000000000000000216 /* RawGeoSyncSmoke */,
+				A10000000000000000000218 /* RawGeoSyncAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -169,6 +191,14 @@
 				A10000000000000000000215 /* SmokeMain.swift */,
 			);
 			path = RawGeoSmoke;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000412 /* RawGeoSyncAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000217 /* WorkspaceSelectionTests.swift */,
+			);
+			path = RawGeoSyncAppTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -215,6 +245,23 @@
 			productReference = A10000000000000000000216 /* RawGeoSyncSmoke */;
 			productType = "com.apple.product-type.tool";
 		};
+		A10000000000000000000504 /* RawGeoSyncAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000704 /* Build configuration list for PBXNativeTarget "RawGeoSyncAppTests" */;
+			buildPhases = (
+				A10000000000000000000307 /* Sources */,
+				A10000000000000000000306 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10000000000000000000902 /* PBXTargetDependency */,
+			);
+			name = RawGeoSyncAppTests;
+			productName = RawGeoSyncAppTests;
+			productReference = A10000000000000000000218 /* RawGeoSyncAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -227,6 +274,10 @@
 				TargetAttributes = {
 					A10000000000000000000501 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					A10000000000000000000504 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = A10000000000000000000501;
 					};
 				};
 			};
@@ -250,6 +301,7 @@
 			targets = (
 				A10000000000000000000501 /* RawGeoSync */,
 				A10000000000000000000503 /* RawGeoSyncSmoke */,
+				A10000000000000000000504 /* RawGeoSyncAppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -294,7 +346,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000000000000000000307 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000121 /* WorkspaceSelectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000000000000000000902 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000501 /* RawGeoSync */;
+			targetProxy = A10000000000000000000901 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A10000000000000000000801 /* Debug */ = {
@@ -408,7 +476,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-		};
+			};
 			name = Release;
 		};
 		A10000000000000000000803 /* Debug */ = {
@@ -416,7 +484,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -427,7 +495,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
@@ -442,7 +510,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -453,7 +521,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
@@ -488,6 +556,39 @@
 			};
 			name = Release;
 		};
+		A10000000000000000000807 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSyncAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawGeoSync.app/Contents/MacOS/RawGeoSync";
+			};
+			name = Debug;
+		};
+		A10000000000000000000808 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSyncAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawGeoSync.app/Contents/MacOS/RawGeoSync";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -514,6 +615,15 @@
 			buildConfigurations = (
 				A10000000000000000000805 /* Debug */,
 				A10000000000000000000806 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000704 /* Build configuration list for PBXNativeTarget "RawGeoSyncAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000807 /* Debug */,
+				A10000000000000000000808 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

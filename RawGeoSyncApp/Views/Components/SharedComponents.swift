@@ -41,6 +41,7 @@ struct ConfidenceBadge: View {
     switch confidence {
     case .reliable: .green
     case .review: .orange
+    case .coarse: .purple
     case .unmatched: .red
     }
   }

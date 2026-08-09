@@ -8,11 +8,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   macos:
-    name: macOS checks
+    name: Repository, tests, build and analyze
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,25 +29,12 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Verify bundled ExifTool
-        run: ./Scripts/verify-vendor.sh
+      - name: Full quality gate
+        run: ./Scripts/ci.sh
 
-      - name: Swift format
-        run: ./Scripts/format-check.sh
-
-      - name: Core tests
-        run: swift test --package-path RawGeoCore
-
-      - name: Metadata tests
-        run: swift test --package-path MetadataInfrastructure
-
-      - name: Application build
+      - name: Assert clean checkout
         run: |
-          xcodebuild \
-            -project RawGeoSync.xcodeproj \
-            -scheme RawGeoSync \
-            -configuration Debug \
-            -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath .local/CI-DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            git status --short --untracked-files=all
+            exit 1
+          fi

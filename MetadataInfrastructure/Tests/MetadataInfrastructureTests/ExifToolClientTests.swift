@@ -47,6 +47,15 @@ struct ExifToolClientTests {
     #expect(invocation.arguments == ["/bundle/exiftool", "-ver"])
   }
 
+  @Test("bundled configuration allows large-library metadata batches")
+  func bundledConfigurationTimeout() throws {
+    let configuration = try ExifToolConfiguration.bundledPerl(
+      scriptURL: URL(fileURLWithPath: "/bundle/exiftool")
+    )
+
+    #expect(configuration.timeout == .seconds(120))
+  }
+
   @Test("parses numeric and string subseconds and restores input order")
   func parsesMixedJSONAndRestoresOrder() async throws {
     let directory = try makeTemporaryDirectory()
@@ -73,9 +82,22 @@ struct ExifToolClientTests {
           "EXIF:SubSecTimeOriginal": "080",
           "EXIF:OffsetTimeOriginal": "+08:00",
           "EXIF:GPSLatitude": 22.5,
-          "EXIF:GPSLongitude": 113.7,
-          "EXIF:GPSAltitude": 10,
-          "EXIF:GPSAltitudeRef": 1
+            "EXIF:GPSLongitude": 113.7,
+            "EXIF:GPSAltitude": 10,
+            "EXIF:GPSAltitudeRef": 1,
+            "IFD0:Make": "NIKON CORPORATION",
+            "IFD0:Model": "NIKON Z 50",
+            "Nikon:SerialNumber": "00001234",
+            "Nikon:InternalSerialNumber": 9876,
+            "Nikon:ShutterCount": 4321,
+            "File:FileSize": 20971520,
+            "Composite:GPSDateTime": "2026:08:08 06:14:00Z",
+            "EXIF:GPSHPositioningError": 7.5,
+            "XMP-xmpMM:DocumentID": "xmp.did:document",
+            "XMP-xmpMM:OriginalDocumentID": "xmp.did:original",
+            "XMP-xmpMM:DerivedFrom": {"DocumentID":"xmp.did:source"},
+            "IFD0:Software": "Camera Firmware 1.0",
+            "XMP-x:XMPToolkit": "Image::ExifTool 13.59"
         }
       ]
       """
@@ -100,6 +122,19 @@ struct ExifToolClientTests {
     #expect(metadata[0].subsecondTimeOriginal == "080")
     #expect(metadata[1].subsecondTimeOriginal == "66")
     #expect(metadata[0].gps?.altitude == -10)
+    #expect(metadata[0].make == "NIKON CORPORATION")
+    #expect(metadata[0].model == "NIKON Z 50")
+    #expect(metadata[0].serialNumber == "00001234")
+    #expect(metadata[0].internalSerialNumber == "9876")
+    #expect(metadata[0].shutterCount == 4321)
+    #expect(metadata[0].fileSize == 20_971_520)
+    #expect(metadata[0].gpsDateTime == "2026:08:08 06:14:00Z")
+    #expect(metadata[0].gpsHorizontalPositioningError == 7.5)
+    #expect(metadata[0].documentID == "xmp.did:document")
+    #expect(metadata[0].originalDocumentID == "xmp.did:original")
+    #expect(metadata[0].derivedFrom == #"{"DocumentID":"xmp.did:source"}"#)
+    #expect(metadata[0].software == "Camera Firmware 1.0")
+    #expect(metadata[0].xmpToolkit == "Image::ExifTool 13.59")
     #expect(metadata[1].gps == nil)
     #expect(metadata[1].gpsIsPartial)
 
@@ -108,6 +143,8 @@ struct ExifToolClientTests {
     #expect(invocation.arguments.contains(secondURL.path))
     #expect(!invocation.arguments.contains("/bin/sh"))
     #expect(invocation.arguments.contains("-EXIF:GPSLatitude#"))
+    #expect(invocation.arguments.contains("-ShutterCount#"))
+    #expect(invocation.arguments.contains("-DocumentID"))
     #expect(!invocation.arguments.contains("-n"))
   }
 
@@ -132,6 +169,42 @@ struct ExifToolClientTests {
     await #expect(throws: MetadataInfrastructureError.self) {
       try await client.checkVersion()
     }
+  }
+
+  @Test("scans DNG JPEG and TIFF without granting sidecar write eligibility")
+  func scansReadOnlyMediaFormats() async throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let urls = ["photo.DNG", "photo.JPG", "photo.TIFF"].map(directory.appendingPathComponent)
+    for url in urls { try Data("scan-only".utf8).write(to: url) }
+    let media = try urls.map(ReadOnlyMediaFile.init(url:))
+    let jsonObjects: [[String: Any]] = urls.enumerated().map { index, url in
+      [
+        "SourceFile": url.path,
+        "IFD0:Make": "Camera \(index)",
+        "File:FileSize": 9,
+      ]
+    }
+    let runner = RecordingRunner(results: [
+      .success(
+        ExecutableResult(
+          terminationStatus: 0,
+          standardOutput: try JSONSerialization.data(withJSONObject: jsonObjects),
+          standardError: Data()
+        ))
+    ])
+    let client = ExifToolClient(
+      runner: runner,
+      configuration: ExifToolConfiguration(
+        executableURL: URL(fileURLWithPath: "/fake/exiftool"),
+        minimumVersion: try ExifToolVersion("13.59")
+      )
+    )
+
+    let result = try await client.readMediaMetadata(media)
+    #expect(result.map(\.mediaFile.kind) == [.dng, .jpeg, .tiff])
+    #expect(result.map(\.make) == ["Camera 0", "Camera 1", "Camera 2"])
+    #expect(result.allSatisfy { $0.fileSize == 9 })
   }
 
   @Test("real process runner terminates on timeout")

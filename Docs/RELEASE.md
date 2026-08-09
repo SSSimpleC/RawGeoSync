@@ -6,9 +6,29 @@
 
 1. 确认工作区干净，目标提交已合并到 `main`。
 2. 更新 `CHANGELOG.md`、README 和本次决策文档。
-3. 执行 `Scripts/format-check.sh`、`Scripts/verify-vendor.sh`、两个 Swift Package 的 Debug/Release 测试，以及应用 Debug/Release 构建。
-4. 执行 `xcodebuild analyze`，检查 `git diff --check`，确认没有照片、轨迹、XMP、日志或密钥。
+3. 执行 `Scripts/ci.sh`，完成仓库策略、vendor、格式、两个 Swift Package 的 Debug/Release 测试、应用 Debug/Release 构建与静态分析。
+4. 检查 `git status` 和 CI 日志，确认没有照片、轨迹、XMP、本机路径、真实坐标、日志或密钥。
 5. 为版本创建带注释的 Git tag，并推送提交和 tag。
+
+## v0.2 匹配与全量回归门禁
+
+1. 确认 [ADR 0002](Decisions/0002-matching-v2.md) 的来源层级、阈值、reason code 与实现一致。
+2. 用合成夹具验证每个门槛两侧、强候选冲突、传播单跳、循环拒绝、航班断段和活动区降级。
+3. 使用参数化真实数据执行：
+
+   ```sh
+   ./Scripts/real-data-regression.sh \
+     --gpx-dir "$GPX_DIR" \
+     --photo-dir "$PHOTO_DIR" \
+     --cli "$REGRESSION_CLI" \
+     --require-capability
+   ```
+
+4. 在同一机器运行三次，分类和规则分布完全一致；wall time 与峰值内存满足 [测试规范](TESTING.md) 的回归预算。
+5. 只在 `.local/` 的最小照片副本上执行 XMP 应用、幂等和撤销；原始 GPX、照片目录及 RAW SHA-256 前后不变。
+6. 不上传真实 dry-run 报告、哈希清单、文件名、坐标或性能日志原件。PR 和 Release 仅记录脱敏聚合指标。
+
+`--require-capability` 只禁止缺失能力被跳过；发布者仍需完成第 2、4、5 步的语义、性能与副本写入验收。
 
 ## 构建发布
 
@@ -29,7 +49,10 @@ Mac App Store 不是当前 MVP 目标。若未来进入 Mac App Store，需要�
 - 已有不同 GPS 默认跳过；
 - 重复运行识别为 already-applied 且不改变 XMP mtime；
 - 取消、单项失败和崩溃不会留下半写 XMP；
-- 撤销遇到后续 Lightroom 修改时必须拒绝覆盖。
+- 撤销遇到后续 Lightroom 修改时必须拒绝覆盖；
+- 强候选冲突、传播循环和跨活动区候选不能自动写入；
+- 源无 hacc 时界面和报告都显示 unknown，不生成伪精度；
+- 全量 dry-run 的输入目录前后 SHA-256 清单完全一致。
 
 ## 第三方组件
 

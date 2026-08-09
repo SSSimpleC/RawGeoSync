@@ -4,21 +4,129 @@ import Foundation
 public enum ExistingGPSPolicy: String, Codable, Hashable, Sendable {
   case skip
   case replace
+  case replaceIfStrongerProvenance
+}
+
+public enum MatchProvenanceSource: String, Codable, Hashable, Sendable {
+  case nearestTrackPoint
+  case stationaryCandidate
+  case interpolatedTrack
+  case exactTrackPoint
+  case manual
+
+  fileprivate var rank: Int {
+    switch self {
+    case .nearestTrackPoint: 0
+    case .stationaryCandidate: 1
+    case .interpolatedTrack: 2
+    case .exactTrackPoint: 3
+    case .manual: 4
+    }
+  }
+}
+
+public enum MatchProvenanceVerification: String, Codable, Hashable, Sendable {
+  case automatic
+  case userConfirmed
+  case manual
+
+  fileprivate var rank: Int {
+    switch self {
+    case .automatic: 0
+    case .userConfirmed: 1
+    case .manual: 2
+    }
+  }
+}
+
+/// 解释坐标如何产生，并提供可重复的强度比较。它存入事务，不写入未知外部 XMP。
+public struct MatchProvenance: Hashable, Codable, Sendable {
+  public let source: MatchProvenanceSource
+  public let verification: MatchProvenanceVerification
+  public let algorithmVersion: String
+  public let trackFileSHA256: String?
+  public let generatedAt: Date
+  public let sourceTimeLowerBound: Date?
+  public let sourceTimeUpperBound: Date?
+  public let temporalDistanceSeconds: Double?
+  public let horizontalAccuracyMeters: Double?
+
+  public init(
+    source: MatchProvenanceSource,
+    verification: MatchProvenanceVerification,
+    algorithmVersion: String,
+    trackFileSHA256: String? = nil,
+    generatedAt: Date = Date(),
+    sourceTimeLowerBound: Date? = nil,
+    sourceTimeUpperBound: Date? = nil,
+    temporalDistanceSeconds: Double? = nil,
+    horizontalAccuracyMeters: Double? = nil
+  ) {
+    self.source = source
+    self.verification = verification
+    self.algorithmVersion = algorithmVersion
+    self.trackFileSHA256 = trackFileSHA256
+    self.generatedAt = generatedAt
+    self.sourceTimeLowerBound = sourceTimeLowerBound
+    self.sourceTimeUpperBound = sourceTimeUpperBound
+    self.temporalDistanceSeconds = temporalDistanceSeconds.flatMap {
+      $0.isFinite ? $0 : nil
+    }
+    self.horizontalAccuracyMeters = horizontalAccuracyMeters.flatMap {
+      $0.isFinite && $0 >= 0 ? $0 : nil
+    }
+  }
+
+  public func isProvablyStronger(than other: MatchProvenance) -> Bool {
+    if verification.rank != other.verification.rank {
+      return verification.rank > other.verification.rank
+    }
+    if source.rank != other.source.rank {
+      return source.rank > other.source.rank
+    }
+    switch (horizontalAccuracyMeters, other.horizontalAccuracyMeters) {
+    case (let lhs?, let rhs?) where lhs != rhs:
+      return lhs < rhs
+    case (.some, .none):
+      return true
+    case (.none, .some):
+      return false
+    default:
+      break
+    }
+    switch (temporalDistanceSeconds, other.temporalDistanceSeconds) {
+    case (let lhs?, let rhs?) where abs(lhs) != abs(rhs):
+      return abs(lhs) < abs(rhs)
+    case (.some, .none):
+      return true
+    default:
+      return false
+    }
+  }
+}
+
+public enum ExistingGPSOrigin: String, Codable, Hashable, Sendable {
+  case embeddedMedia
+  case externalSidecar
+  case rawGeoSyncTransaction
 }
 
 public struct SidecarWriteRequest: Hashable, Codable, Sendable {
   public let rawFile: ReadOnlyRawFile
   public let gps: GPSMetadata
   public let existingGPSPolicy: ExistingGPSPolicy
+  public let matchProvenance: MatchProvenance?
 
   public init(
     rawFile: ReadOnlyRawFile,
     gps: GPSMetadata,
-    existingGPSPolicy: ExistingGPSPolicy = .skip
+    existingGPSPolicy: ExistingGPSPolicy = .skip,
+    matchProvenance: MatchProvenance? = nil
   ) {
     self.rawFile = rawFile
     self.gps = gps
     self.existingGPSPolicy = existingGPSPolicy
+    self.matchProvenance = matchProvenance
   }
 }
 
@@ -89,6 +197,11 @@ public struct SidecarWritePlanItem: Hashable, Codable, Sendable, Identifiable {
   public let rawPrecondition: FileFingerprint
   public let sidecarPrecondition: FileFingerprint?
   public let originalNonGPSSemanticDigest: String?
+  public let matchProvenance: MatchProvenance?
+  public let existingGPS: GPSMetadata?
+  public let existingGPSOrigin: ExistingGPSOrigin?
+  public let existingMatchProvenance: MatchProvenance?
+  public let provenanceTransactionID: UUID?
 
   public init(
     id: UUID = UUID(),
@@ -98,7 +211,12 @@ public struct SidecarWritePlanItem: Hashable, Codable, Sendable, Identifiable {
     disposition: SidecarWriteDisposition,
     rawPrecondition: FileFingerprint,
     sidecarPrecondition: FileFingerprint?,
-    originalNonGPSSemanticDigest: String?
+    originalNonGPSSemanticDigest: String?,
+    matchProvenance: MatchProvenance? = nil,
+    existingGPS: GPSMetadata? = nil,
+    existingGPSOrigin: ExistingGPSOrigin? = nil,
+    existingMatchProvenance: MatchProvenance? = nil,
+    provenanceTransactionID: UUID? = nil
   ) {
     self.id = id
     self.rawFile = rawFile
@@ -108,6 +226,11 @@ public struct SidecarWritePlanItem: Hashable, Codable, Sendable, Identifiable {
     self.rawPrecondition = rawPrecondition
     self.sidecarPrecondition = sidecarPrecondition
     self.originalNonGPSSemanticDigest = originalNonGPSSemanticDigest
+    self.matchProvenance = matchProvenance
+    self.existingGPS = existingGPS
+    self.existingGPSOrigin = existingGPSOrigin
+    self.existingMatchProvenance = existingMatchProvenance
+    self.provenanceTransactionID = provenanceTransactionID
   }
 }
 
@@ -158,6 +281,9 @@ public struct TransactionFileRecord: Hashable, Codable, Sendable, Identifiable {
 }
 
 public struct XMPTransactionManifest: Hashable, Codable, Sendable, Identifiable {
+  public static let currentSchemaVersion = 2
+
+  public let schemaVersion: Int
   public let id: UUID
   public let createdAt: Date
   public var updatedAt: Date
@@ -165,11 +291,36 @@ public struct XMPTransactionManifest: Hashable, Codable, Sendable, Identifiable 
   public var records: [TransactionFileRecord]
 
   public init(plan: SidecarWritePlan, now: Date = Date()) {
+    self.schemaVersion = Self.currentSchemaVersion
     self.id = plan.id
     self.createdAt = plan.createdAt
     self.updatedAt = now
     self.status = .applying
     self.records = plan.items.map(TransactionFileRecord.init)
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion, id, createdAt, updatedAt, status, records
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+    self.id = try container.decode(UUID.self, forKey: .id)
+    self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+    self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    self.status = try container.decode(TransactionStatus.self, forKey: .status)
+    self.records = try container.decode([TransactionFileRecord].self, forKey: .records)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(Self.currentSchemaVersion, forKey: .schemaVersion)
+    try container.encode(id, forKey: .id)
+    try container.encode(createdAt, forKey: .createdAt)
+    try container.encode(updatedAt, forKey: .updatedAt)
+    try container.encode(status, forKey: .status)
+    try container.encode(records, forKey: .records)
   }
 }
 
@@ -205,6 +356,11 @@ public struct BackupCleanupReport: Hashable, Codable, Sendable {
   }
 }
 
+private struct ProvenanceProof: Sendable {
+  let transactionID: UUID
+  let provenance: MatchProvenance
+}
+
 public actor XMPTransactionCoordinator {
   private let metadataTool: any MetadataTooling
   private let backupRoot: URL
@@ -224,6 +380,7 @@ public actor XMPTransactionCoordinator {
   public func makeWritePlan(_ requests: [SidecarWriteRequest]) async throws -> SidecarWritePlan {
     let rawMetadata = try await metadataTool.readRawMetadata(requests.map(\.rawFile))
     let metadataByURL = Dictionary(uniqueKeysWithValues: rawMetadata.map { ($0.rawFile.url, $0) })
+    let priorManifests = provenanceManifests()
     var items: [SidecarWritePlanItem] = []
     items.reserveCapacity(requests.count)
 
@@ -252,6 +409,21 @@ public actor XMPTransactionCoordinator {
       }
       let rawGPS = metadataByURL[request.rawFile.url]?.gps
       let sidecarGPS = sidecarMetadata?.gps
+      let existingGPS = sidecarGPS ?? rawGPS
+      let proof = provenanceProof(
+        rawFile: request.rawFile,
+        sidecar: resolvedSidecar,
+        rawFingerprint: rawFingerprint,
+        sidecarFingerprint: sidecarFingerprint,
+        existingGPS: sidecarGPS,
+        manifests: priorManifests
+      )
+      let existingOrigin: ExistingGPSOrigin? = {
+        if sidecarGPS != nil {
+          return proof == nil ? .externalSidecar : .rawGeoSyncTransaction
+        }
+        return rawGPS == nil ? nil : .embeddedMedia
+      }()
       let disposition: SidecarWriteDisposition
       if let sidecarReadFailure {
         disposition = .conflict("无法安全读取现有 XMP：\(sidecarReadFailure)")
@@ -263,7 +435,10 @@ public actor XMPTransactionCoordinator {
           rawGPSIsPartial: metadataByURL[request.rawFile.url]?.gpsIsPartial == true,
           sidecarGPSIsPartial: sidecarMetadata?.gpsIsPartial == true,
           sidecarExists: sidecarExists,
-          policy: request.existingGPSPolicy
+          policy: request.existingGPSPolicy,
+          desiredProvenance: request.matchProvenance,
+          existingProvenance: proof?.provenance,
+          existingOrigin: existingOrigin
         )
       }
 
@@ -275,7 +450,12 @@ public actor XMPTransactionCoordinator {
           disposition: disposition,
           rawPrecondition: rawFingerprint,
           sidecarPrecondition: sidecarFingerprint,
-          originalNonGPSSemanticDigest: sidecarMetadata?.nonGPSSemanticDigest
+          originalNonGPSSemanticDigest: sidecarMetadata?.nonGPSSemanticDigest,
+          matchProvenance: request.matchProvenance,
+          existingGPS: existingGPS,
+          existingGPSOrigin: existingOrigin,
+          existingMatchProvenance: proof?.provenance,
+          provenanceTransactionID: proof?.transactionID
         ))
     }
     return SidecarWritePlan(items: items)
@@ -437,7 +617,10 @@ public actor XMPTransactionCoordinator {
     rawGPSIsPartial: Bool,
     sidecarGPSIsPartial: Bool,
     sidecarExists: Bool,
-    policy: ExistingGPSPolicy
+    policy: ExistingGPSPolicy,
+    desiredProvenance: MatchProvenance?,
+    existingProvenance: MatchProvenance?,
+    existingOrigin: ExistingGPSOrigin?
   ) -> SidecarWriteDisposition {
     if rawGPSIsPartial || sidecarGPSIsPartial {
       return .conflict("文件中存在不完整的 GPS 元数据")
@@ -447,27 +630,66 @@ public actor XMPTransactionCoordinator {
     }
     if let existing = sidecarGPS ?? rawGPS {
       if existing.isEquivalent(to: desired) { return .alreadyApplied }
-      if policy == .skip { return .conflict("文件中已有不同 GPS") }
+      switch policy {
+      case .skip:
+        return .conflict("文件中已有不同 GPS")
+      case .replace:
+        break
+      case .replaceIfStrongerProvenance:
+        guard existingOrigin == .rawGeoSyncTransaction,
+          let desiredProvenance,
+          let existingProvenance,
+          desiredProvenance.isProvablyStronger(than: existingProvenance)
+        else {
+          return .conflict("已有 GPS 无法证明来自较弱的 RawGeoSync 匹配；未知外部 XMP 受保护")
+        }
+      }
     }
     return sidecarExists ? .update : .create
   }
 
+  private func provenanceManifests() -> [XMPTransactionManifest] {
+    guard let ids = try? transactionIDs() else { return [] }
+    let terminal: Set<TransactionStatus> = [.completed, .completedWithFailures, .cancelled]
+    return ids.compactMap { id in
+      guard let manifest = try? self.manifest(transactionID: id),
+        terminal.contains(manifest.status)
+      else { return nil }
+      return manifest
+    }
+    .sorted { $0.updatedAt > $1.updatedAt }
+  }
+
+  private func provenanceProof(
+    rawFile: ReadOnlyRawFile,
+    sidecar: SidecarURL,
+    rawFingerprint: FileFingerprint,
+    sidecarFingerprint: FileFingerprint?,
+    existingGPS: GPSMetadata?,
+    manifests: [XMPTransactionManifest]
+  ) -> ProvenanceProof? {
+    guard let rawDigest = rawFingerprint.sha256,
+      let sidecarDigest = sidecarFingerprint?.sha256,
+      let existingGPS
+    else { return nil }
+    for manifest in manifests {
+      for record in manifest.records where record.status == .applied {
+        let item = record.planItem
+        guard item.rawFile.url == rawFile.url,
+          item.sidecar.url == sidecar.url,
+          item.rawPrecondition.sha256 == rawDigest,
+          record.postWriteFingerprint?.sha256 == sidecarDigest,
+          item.desiredGPS.isEquivalent(to: existingGPS),
+          let provenance = item.matchProvenance
+        else { continue }
+        return ProvenanceProof(transactionID: manifest.id, provenance: provenance)
+      }
+    }
+    return nil
+  }
+
   private func resolveSidecar(for rawFile: ReadOnlyRawFile) throws -> SidecarURL {
-    let expected = try SidecarURL(for: rawFile)
-    let directory = rawFile.url.deletingLastPathComponent()
-    let baseName = rawFile.url.deletingPathExtension().lastPathComponent
-    let entries = try fileManager.contentsOfDirectory(
-      at: directory,
-      includingPropertiesForKeys: nil,
-      options: [.skipsHiddenFiles]
-    ).filter {
-      $0.deletingPathExtension().lastPathComponent == baseName
-        && $0.pathExtension.caseInsensitiveCompare("xmp") == .orderedSame
-    }
-    if entries.count > 1 {
-      throw MetadataInfrastructureError.sidecarConflict(expected.url, "同时存在多个大小写不同的 XMP")
-    }
-    return try entries.first.map(SidecarURL.init(validatedURL:)) ?? expected
+    try SidecarURL.existing(for: rawFile, fileManager: fileManager) ?? SidecarURL(for: rawFile)
   }
 
   private func applyRecord(

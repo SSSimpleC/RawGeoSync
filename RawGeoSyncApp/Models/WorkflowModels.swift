@@ -34,17 +34,46 @@ enum WorkflowStage: Int, CaseIterable, Identifiable, Sendable {
 }
 
 struct SourceConfiguration: Equatable, Sendable {
-  var trackURL: URL?
+  var gpxDirectoryURL: URL?
   var photoDirectoryURL: URL?
   var timeZoneIdentifier = "Asia/Shanghai"
   var cameraClockOffsetSeconds = 0
+  var cameraClockOffsetsByID: [String: Int] = [:]
   var writeAltitude = false
+  var matchingStrategy: MatchingStrategy = .coverage
   var outputMode: OutputMode = .xmpSidecar
 
-  var isReady: Bool { trackURL != nil && photoDirectoryURL != nil }
+  var isReady: Bool { gpxDirectoryURL != nil && photoDirectoryURL != nil }
 
   var timeZone: TimeZone {
     TimeZone(identifier: timeZoneIdentifier) ?? TimeZone(secondsFromGMT: 0)!
+  }
+}
+
+enum MatchingStrategy: String, CaseIterable, Identifiable, Sendable {
+  case precision
+  case balanced
+  case coverage
+
+  var id: String { rawValue }
+
+  var title: String {
+    switch self {
+    case .precision: "精度优先"
+    case .balanced: "平衡"
+    case .coverage: "覆盖优先"
+    }
+  }
+
+  var detail: String {
+    switch self {
+    case .precision:
+      "只自动采用新鲜传感器、精确轨迹与密集轨迹结果"
+    case .balanced:
+      "生成轨迹、停留和照片序列候选，区域级结果需主动开启"
+    case .coverage:
+      "为每张照片尽量给出候选；粗略结果仍需批量确认"
+    }
   }
 }
 
@@ -52,7 +81,7 @@ enum OutputMode: String, CaseIterable, Identifiable, Sendable {
   case xmpSidecar
 
   var id: String { rawValue }
-  var title: String { "XMP Sidecar（推荐）" }
+  var title: String { "专有 RAW 的 XMP Sidecar" }
 }
 
 struct GeoCoordinate: Hashable, Codable, Sendable {
@@ -88,6 +117,7 @@ struct GeoCoordinate: Hashable, Codable, Sendable {
 enum MatchConfidence: String, CaseIterable, Identifiable, Sendable {
   case reliable
   case review
+  case coarse
   case unmatched
 
   var id: String { rawValue }
@@ -96,6 +126,7 @@ enum MatchConfidence: String, CaseIterable, Identifiable, Sendable {
     switch self {
     case .reliable: "可靠"
     case .review: "待确认"
+    case .coarse: "粗略区域"
     case .unmatched: "未匹配"
     }
   }
@@ -104,16 +135,47 @@ enum MatchConfidence: String, CaseIterable, Identifiable, Sendable {
     switch self {
     case .reliable: "checkmark.circle.fill"
     case .review: "exclamationmark.triangle.fill"
+    case .coarse: "map.fill"
     case .unmatched: "questionmark.circle.fill"
     }
   }
 }
 
+enum SpatialGranularity: String, Sendable {
+  case sensor
+  case track
+  case photoCluster
+  case activity
+  case region
+  case manual
+  case unavailable
+
+  var title: String {
+    switch self {
+    case .sensor: "传感器级"
+    case .track: "轨迹级"
+    case .photoCluster: "照片簇级"
+    case .activity: "活动级"
+    case .region: "区域级"
+    case .manual: "手工位置"
+    case .unavailable: "无位置"
+    }
+  }
+}
+
 enum MatchMethod: String, Sendable {
+  case directSensor
   case exact
   case interpolated
   case reviewInterpolation
+  case sameAsset
+  case auxiliaryFix
+  case burstPropagation
+  case sequencePropagation
+  case crossCamera
   case stationary
+  case activityRepresentative
+  case regionRepresentative
   case nearest
   case previousPoint
   case nextPoint
@@ -123,10 +185,18 @@ enum MatchMethod: String, Sendable {
 
   var title: String {
     switch self {
+    case .directSensor: "新鲜传感器 GPS"
     case .exact: "精确轨迹点"
     case .interpolated: "轨迹插值"
     case .reviewInterpolation: "待确认插值"
+    case .sameAsset: "同一资产"
+    case .auxiliaryFix: "辅助定位事件"
+    case .burstPropagation: "连拍传播"
+    case .sequencePropagation: "照片序列传播"
+    case .crossCamera: "跨相机一致锚点"
     case .stationary: "停留点"
+    case .activityRepresentative: "活动代表位置"
+    case .regionRepresentative: "区域代表位置"
     case .nearest: "最近轨迹点"
     case .previousPoint: "前点"
     case .nextPoint: "后点"
@@ -167,10 +237,15 @@ enum SourceLocationAccuracy: Hashable, Sendable {
       "源未提供定位精度"
     }
   }
+
+  var meters: Double? {
+    if case .meters(let value) = self { return value }
+    return nil
+  }
 }
 
 struct PhotoMatch: Identifiable, Hashable, Sendable {
-  let id: UUID
+  let id: String
   var fileURL: URL
   var capturedAt: Date
   var previousTrackPoint: GeoCoordinate?
@@ -178,10 +253,22 @@ struct PhotoMatch: Identifiable, Hashable, Sendable {
   var coordinate: GeoCoordinate?
   var confidence: MatchConfidence
   var method: MatchMethod
+  var granularity: SpatialGranularity
   var sourceLocationAccuracy: SourceLocationAccuracy
+  var evidenceSummary: String
+  var supportSpreadMeters: Double?
+  var confirmationGroupID: String?
+  var ruleVersion: String = "1.0"
+  var sourceTimeLowerBound: Date?
+  var sourceTimeUpperBound: Date?
+  var temporalDistanceSeconds: TimeInterval?
+  var trackFileSHA256: String? = nil
   var note: String
   var isSelectedForWrite: Bool
+  var isWritableTarget: Bool
   var hasExistingGPS: Bool
+  var hasProtectedExternalXMP: Bool
+  var replacementExplicitlyAuthorized = false
   var verification: VerificationState = .pending
 
   var fileName: String { fileURL.lastPathComponent }
@@ -190,16 +277,30 @@ struct PhotoMatch: Identifiable, Hashable, Sendable {
 struct AnalysisSnapshot: Sendable {
   var matches: [PhotoMatch]
   var trackCoordinates: [GeoCoordinate]
+  var warnings: [String] = []
+  var clockSuggestions: [ClockSuggestionInfo] = []
 
   var reliableCount: Int { matches.count(where: { $0.confidence == .reliable }) }
   var reviewCount: Int { matches.count(where: { $0.confidence == .review }) }
+  var coarseCount: Int { matches.count(where: { $0.confidence == .coarse }) }
   var unmatchedCount: Int { matches.count(where: { $0.confidence == .unmatched }) }
+}
+
+struct ClockSuggestionInfo: Identifiable, Hashable, Sendable {
+  var id: String { cameraID }
+  var cameraID: String
+  var cameraLabel: String
+  var cameraAheadBySeconds: Int
+  var evidenceCount: Int
+  var residualSeconds: TimeInterval
+  var confidenceLabel: String
 }
 
 enum ConfidenceFilter: String, CaseIterable, Identifiable {
   case all
   case reliable
   case review
+  case coarse
   case unmatched
 
   var id: String { rawValue }
@@ -209,6 +310,7 @@ enum ConfidenceFilter: String, CaseIterable, Identifiable {
     case .all: "全部"
     case .reliable: "可靠"
     case .review: "待确认"
+    case .coarse: "粗略"
     case .unmatched: "未匹配"
     }
   }
@@ -218,6 +320,7 @@ enum ConfidenceFilter: String, CaseIterable, Identifiable {
     case .all: true
     case .reliable: match.confidence == .reliable
     case .review: match.confidence == .review
+    case .coarse: match.confidence == .coarse
     case .unmatched: match.confidence == .unmatched
     }
   }
