@@ -56,13 +56,18 @@ final class WorkspaceViewModel: ObservableObject {
     matches.count(where: { $0.isSelectedForWrite && $0.coordinate != nil })
   }
 
-  var selectableWriteCount: Int {
-    matches.count(where: { $0.coordinate != nil && !$0.hasExistingGPS })
+  var filteredSelectableWriteCount: Int {
+    filteredMatches.count(where: { $0.coordinate != nil && !$0.hasExistingGPS })
   }
 
-  var areAllWritablePhotosSelected: Bool {
-    let selectable = matches.filter { $0.coordinate != nil && !$0.hasExistingGPS }
+  var areAllFilteredWritablePhotosSelected: Bool {
+    let selectable = filteredMatches.filter { $0.coordinate != nil && !$0.hasExistingGPS }
     return !selectable.isEmpty && selectable.allSatisfy(\.isSelectedForWrite)
+  }
+
+  var areAllFilteredRowsSelected: Bool {
+    let visibleIDs = Set(filteredMatches.map(\.id))
+    return !visibleIDs.isEmpty && visibleIDs.isSubset(of: selectedMatches)
   }
 
   var canApply: Bool {
@@ -237,8 +242,13 @@ final class WorkspaceViewModel: ObservableObject {
     isManualPlacementEnabled = false
   }
 
-  func selectVisible() {
-    selectedMatches = Set(filteredMatches.map(\.id))
+  func toggleFilteredRows() {
+    let visibleIDs = Set(filteredMatches.map(\.id))
+    if visibleIDs.isSubset(of: selectedMatches) {
+      selectedMatches.subtract(visibleIDs)
+    } else {
+      selectedMatches.formUnion(visibleIDs)
+    }
   }
 
   func clearSelection() {
@@ -246,9 +256,11 @@ final class WorkspaceViewModel: ObservableObject {
     isManualPlacementEnabled = false
   }
 
-  func toggleAllWritablePhotos() {
-    let shouldSelect = !areAllWritablePhotosSelected
+  func toggleFilteredWritablePhotos() {
+    let visibleIDs = Set(filteredMatches.map(\.id))
+    let shouldSelect = !areAllFilteredWritablePhotosSelected
     for index in matches.indices {
+      guard visibleIDs.contains(matches[index].id) else { continue }
       if shouldSelect {
         guard matches[index].coordinate != nil, !matches[index].hasExistingGPS else { continue }
         matches[index].isSelectedForWrite = true

@@ -48,7 +48,7 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 ./Scripts/real-sample-smoke.sh
 ```
 
-命令行构建产物和临时测试副本统一位于 `.local/`，不会污染源码或用户原始照片目录。
+最终本机构建产物位于 `.local/Release` 或 `.local/Debug`。Xcode DerivedData 使用系统临时目录并在命令结束后清理，避免在项目内留下几十 GB 的稀疏编译缓存。真实样本临时副本仍只能放在被 Git 忽略的 `.local/tmp`，不得写入用户原始照片目录。
 
 ## 使用建议
 
@@ -56,12 +56,12 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 
 分析完成后，只有“可靠”结果默认勾选写入；停留候选、最近点和其他待确认结果必须按区间复核并主动勾选。写入前应用会展示创建、更新、已应用与冲突数量。撤销仅在 sidecar 未被 Lightroom 等程序继续修改时执行，避免抹掉后续编辑。
 
-本机 Release 应用位于 `.local/DerivedData-Release-Final/Build/Products/Release/RawGeoSync.app`。这是未签名的个人本机构建；若未来面向他人分发，需要另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
+本机 Release 应用位于 `.local/Release/RawGeoSync.app`。这是未签名的个人本机构建；若未来面向他人分发，需要另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
 
 日常启动可以在 Finder 中双击该 `.app`，或在终端执行：
 
 ```sh
-open '/Users/simplechen/Desktop/Work/AllAI/RawGeoSync/.local/DerivedData-Release-Final/Build/Products/Release/RawGeoSync.app'
+open '/Users/simplechen/Desktop/Work/AllAI/RawGeoSync/.local/Release/RawGeoSync.app'
 ```
 
 如果源码发生变化，先在项目目录执行 `./Scripts/build-release.sh` 重新构建。需要像普通应用一样从“应用程序”、Spotlight 或启动台打开时，可将 Release 目录中的 `RawGeoSync.app` 拖入 `/Applications`；更新代码并重新构建后，需要重新替换该副本。

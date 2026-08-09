@@ -73,23 +73,25 @@ struct AnalysisWorkspaceView: View {
       Spacer()
 
       Button {
-        workspace.toggleAllWritablePhotos()
+        workspace.toggleFilteredWritablePhotos()
       } label: {
         Label(
-          workspace.areAllWritablePhotosSelected ? "取消全选" : "全选可写照片",
-          systemImage: workspace.areAllWritablePhotosSelected
+          workspace.areAllFilteredWritablePhotosSelected ? "取消当前勾选" : "勾选当前可写",
+          systemImage: workspace.areAllFilteredWritablePhotosSelected
             ? "checkmark.square.fill" : "checkmark.square"
         )
       }
-      .disabled(workspace.selectableWriteCount == 0)
-      .help("不会批量选择没有匹配坐标或已检测到现有 GPS 的照片")
+      .disabled(workspace.filteredSelectableWriteCount == 0)
+      .help("作用于当前筛选；待确认照片也可勾选，没有坐标或已有 GPS 冲突的照片不会进入写入计划")
 
       Divider().frame(height: 20)
 
-      Button("选择可见项") {
-        workspace.selectVisible()
+      Button(workspace.areAllFilteredRowsSelected ? "取消当前选择" : "全选当前筛选") {
+        workspace.toggleFilteredRows()
       }
-      Button("清除选择") {
+      .help("选择当前筛选中的所有行，用于批量指定前点、后点、中点或手工位置；未匹配照片也可选择")
+
+      Button("清除全部选择") {
         workspace.clearSelection()
       }
       .disabled(workspace.selectedMatches.isEmpty)
@@ -139,8 +141,11 @@ struct AnalysisWorkspaceView: View {
           .font(.caption)
           .foregroundStyle(.secondary)
         Spacer()
+        Text("已勾选写入 \(workspace.writableCount) 张")
+          .font(.caption.weight(.medium))
+          .foregroundStyle(.green)
         if !workspace.selectedMatches.isEmpty {
-          Text("已选择 \(workspace.selectedMatches.count) 项")
+          Text("批量选择 \(workspace.selectedMatches.count) 项")
             .font(.caption.weight(.medium))
             .foregroundStyle(.cyan)
         }
