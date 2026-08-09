@@ -5,7 +5,7 @@ PROJECT_ROOT="${0:A:h:h}"
 export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 TEMP_ROOT="${TMPDIR:-/tmp}"
 DERIVED_DATA="$(mktemp -d "${TEMP_ROOT%/}/RawGeoSync-Release.XXXXXX")"
-OUTPUT_ROOT="$PROJECT_ROOT/.local/Release"
+OUTPUT_ROOT="${RAWGEOSYNC_INSTALL_DIR:-${HOME}/Applications}"
 FINAL_APP="$OUTPUT_ROOT/RawGeoSync.app"
 
 cleanup() {
@@ -31,7 +31,7 @@ STAGED_APP="$OUTPUT_ROOT/.RawGeoSync.app.staged"
 if [[ -e "$STAGED_APP" ]]; then
   find "$STAGED_APP" -depth -delete
 fi
-ditto "$DERIVED_DATA/Build/Products/Release/RawGeoSync.app" "$STAGED_APP"
+ditto --noqtn "$DERIVED_DATA/Build/Products/Release/RawGeoSync.app" "$STAGED_APP"
 xattr -dr com.apple.quarantine "$STAGED_APP" 2>/dev/null || true
 codesign --force --sign - --timestamp=none "$STAGED_APP"
 codesign --verify --deep --strict "$STAGED_APP"

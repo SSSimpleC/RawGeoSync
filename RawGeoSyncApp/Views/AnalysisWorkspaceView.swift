@@ -81,8 +81,8 @@ struct AnalysisWorkspaceView: View {
             ? "checkmark.square.fill" : "checkmark.square"
         )
       }
-      .disabled(workspace.filteredSelectablePhotoCount == 0)
-      .help("直接勾选当前筛选中的照片；未匹配照片也能勾选，但获得坐标前不会写入")
+      .disabled(workspace.filteredMatches.isEmpty || workspace.isBusy)
+      .help("直接勾选当前筛选中的全部照片；已有 GPS 的照片会在预检中列为更新，未匹配照片获得坐标前会安全跳过")
 
       Divider().frame(height: 20)
 

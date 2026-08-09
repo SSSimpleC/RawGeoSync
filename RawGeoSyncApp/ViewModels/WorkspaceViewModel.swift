@@ -60,13 +60,8 @@ final class WorkspaceViewModel: ObservableObject {
     matches.count(where: { $0.isSelectedForWrite })
   }
 
-  var filteredSelectablePhotoCount: Int {
-    filteredMatches.count(where: { !$0.hasExistingGPS })
-  }
-
   var areAllFilteredPhotosChecked: Bool {
-    let selectable = filteredMatches.filter { !$0.hasExistingGPS }
-    return !selectable.isEmpty && selectable.allSatisfy(\.isSelectedForWrite)
+    !filteredMatches.isEmpty && filteredMatches.allSatisfy(\.isSelectedForWrite)
   }
 
   var canApply: Bool {
@@ -252,8 +247,10 @@ final class WorkspaceViewModel: ObservableObject {
     for index in matches.indices {
       guard visibleIDs.contains(matches[index].id) else { continue }
       if shouldSelect {
-        guard !matches[index].hasExistingGPS else { continue }
         matches[index].isSelectedForWrite = true
+        if matches[index].hasExistingGPS {
+          matches[index].note = "已通过全选明确授权用匹配位置替换现有 GPS"
+        }
       } else {
         matches[index].isSelectedForWrite = false
       }

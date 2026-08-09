@@ -48,7 +48,7 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 ./Scripts/real-sample-smoke.sh
 ```
 
-最终本机构建产物位于 `.local/Release` 或 `.local/Debug`。Xcode DerivedData 使用系统临时目录并在命令结束后清理，避免在项目内留下几十 GB 的稀疏编译缓存。真实样本临时副本仍只能放在被 Git 忽略的 `.local/tmp`，不得写入用户原始照片目录。
+最终 Release 应用安装到 `~/Applications/RawGeoSync.app`，Debug 构建位于 `.local/Debug`。Xcode DerivedData 使用系统临时目录并在命令结束后清理，避免在项目内留下几十 GB 的稀疏编译缓存。真实样本临时副本仍只能放在被 Git 忽略的 `.local/tmp`，不得写入用户原始照片目录。
 
 ## 使用建议
 
@@ -56,17 +56,17 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 
 分析完成后，只有“可靠”结果默认勾选写入；停留候选、最近点和其他待确认结果必须按区间复核并主动勾选。写入前应用会展示创建、更新、已应用与冲突数量。撤销仅在 sidecar 未被 Lightroom 等程序继续修改时执行，避免抹掉后续编辑。
 
-“全选照片”直接切换当前“全部 / 可靠 / 待确认 / 未匹配”筛选结果左侧的写入复选框，不是表格行选择。未匹配照片可以预先勾选，但在用户为其指定有效坐标之前仍会安全跳过；检测到已有 GPS 的照片不会被批量授权覆盖。
+“全选照片”直接切换当前“全部 / 可靠 / 待确认 / 未匹配”筛选结果左侧的写入复选框，不是表格行选择。未匹配照片可以预先勾选，但在用户为其指定有效坐标之前仍会安全跳过；已有 GPS 的照片也会被勾选，并在写入预检中明确列为更新或冲突。
 
-本机 Release 应用位于 `.local/Release/RawGeoSync.app`。构建脚本会为它生成仅供本机运行的临时签名并清除构建过程错误继承的下载隔离属性；若未来面向他人分发，仍需另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
+本机 Release 应用位于 `~/Applications/RawGeoSync.app`。将应用安装到不受桌面 iCloud FileProvider 管理的用户应用程序目录，可以避免隔离属性被云端元数据反复恢复；构建脚本还会生成仅供本机运行的临时签名。若未来面向他人分发，仍需另行配置 Developer ID、Hardened Runtime 和 Apple 公证。可通过 `RAWGEOSYNC_INSTALL_DIR` 自定义安装目录。
 
 日常启动可以在 Finder 中双击该 `.app`，或在终端执行：
 
 ```sh
-open '/Users/simplechen/Desktop/Work/AllAI/RawGeoSync/.local/Release/RawGeoSync.app'
+open '/Users/simplechen/Applications/RawGeoSync.app'
 ```
 
-如果源码发生变化，先在项目目录执行 `./Scripts/build-release.sh` 重新构建。需要像普通应用一样从“应用程序”、Spotlight 或启动台打开时，可将 Release 目录中的 `RawGeoSync.app` 拖入 `/Applications`；更新代码并重新构建后，需要重新替换该副本。
+如果源码发生变化，在项目目录执行 `./Scripts/build-release.sh` 即会重新构建并更新用户“应用程序”目录中的版本，之后可从 Finder、Spotlight 或启动台打开。
 
 相机时钟偏移定义为：`相机显示时间 - 真实当地时间`。相机快了 30 秒时填写 `+30`，匹配时应用会从照片时间减去30秒。
 
