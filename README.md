@@ -56,7 +56,7 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 
 分析完成后，只有“可靠”结果默认勾选写入；停留候选、最近点和其他待确认结果必须按区间复核并主动勾选。写入前应用会展示创建、更新、已应用与冲突数量。撤销仅在 sidecar 未被 Lightroom 等程序继续修改时执行，避免抹掉后续编辑。
 
-本机 Release 应用位于 `.local/Release/RawGeoSync.app`。这是未签名的个人本机构建；若未来面向他人分发，需要另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
+本机 Release 应用位于 `.local/Release/RawGeoSync.app`。构建脚本会为它生成仅供本机运行的临时签名并清除构建过程错误继承的下载隔离属性；若未来面向他人分发，仍需另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
 
 日常启动可以在 Finder 中双击该 `.app`，或在终端执行：
 

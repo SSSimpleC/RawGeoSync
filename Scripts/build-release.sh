@@ -32,10 +32,15 @@ if [[ -e "$STAGED_APP" ]]; then
   find "$STAGED_APP" -depth -delete
 fi
 ditto "$DERIVED_DATA/Build/Products/Release/RawGeoSync.app" "$STAGED_APP"
+xattr -dr com.apple.quarantine "$STAGED_APP" 2>/dev/null || true
+codesign --force --sign - --timestamp=none "$STAGED_APP"
+codesign --verify --deep --strict "$STAGED_APP"
 if [[ -e "$FINAL_APP" ]]; then
   find "$FINAL_APP" -depth -delete
 fi
 mv "$STAGED_APP" "$FINAL_APP"
+xattr -dr com.apple.quarantine "$FINAL_APP" 2>/dev/null || true
+codesign --verify --deep --strict "$FINAL_APP"
 
 print "Release 应用已更新："
 print "$FINAL_APP"
