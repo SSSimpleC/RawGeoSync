@@ -56,6 +56,15 @@ final class WorkspaceViewModel: ObservableObject {
     matches.count(where: { $0.isSelectedForWrite && $0.coordinate != nil })
   }
 
+  var selectableWriteCount: Int {
+    matches.count(where: { $0.coordinate != nil && !$0.hasExistingGPS })
+  }
+
+  var areAllWritablePhotosSelected: Bool {
+    let selectable = matches.filter { $0.coordinate != nil && !$0.hasExistingGPS }
+    return !selectable.isEmpty && selectable.allSatisfy(\.isSelectedForWrite)
+  }
+
   var canApply: Bool {
     writableCount > 0 && !isBusy
   }
@@ -235,6 +244,18 @@ final class WorkspaceViewModel: ObservableObject {
   func clearSelection() {
     selectedMatches.removeAll()
     isManualPlacementEnabled = false
+  }
+
+  func toggleAllWritablePhotos() {
+    let shouldSelect = !areAllWritablePhotosSelected
+    for index in matches.indices {
+      if shouldSelect {
+        guard matches[index].coordinate != nil, !matches[index].hasExistingGPS else { continue }
+        matches[index].isSelectedForWrite = true
+      } else {
+        matches[index].isSelectedForWrite = false
+      }
+    }
   }
 
   func setWriteSelection(_ selected: Bool, for id: PhotoMatch.ID) {

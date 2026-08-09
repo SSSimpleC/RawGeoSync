@@ -72,6 +72,20 @@ struct AnalysisWorkspaceView: View {
 
       Spacer()
 
+      Button {
+        workspace.toggleAllWritablePhotos()
+      } label: {
+        Label(
+          workspace.areAllWritablePhotosSelected ? "取消全选" : "全选可写照片",
+          systemImage: workspace.areAllWritablePhotosSelected
+            ? "checkmark.square.fill" : "checkmark.square"
+        )
+      }
+      .disabled(workspace.selectableWriteCount == 0)
+      .help("不会批量选择没有匹配坐标或已检测到现有 GPS 的照片")
+
+      Divider().frame(height: 20)
+
       Button("选择可见项") {
         workspace.selectVisible()
       }

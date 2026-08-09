@@ -58,6 +58,14 @@ RAWGEOSYNC_PHOTO_DIR='/Users/simplechen/Picture/2026-8-8 我们四在东莞/Z50'
 
 本机 Release 应用位于 `.local/DerivedData-Release-Final/Build/Products/Release/RawGeoSync.app`。这是未签名的个人本机构建；若未来面向他人分发，需要另行配置 Developer ID、Hardened Runtime 和 Apple 公证。
 
+日常启动可以在 Finder 中双击该 `.app`，或在终端执行：
+
+```sh
+open '/Users/simplechen/Desktop/Work/AllAI/RawGeoSync/.local/DerivedData-Release-Final/Build/Products/Release/RawGeoSync.app'
+```
+
+如果源码发生变化，先在项目目录执行 `./Scripts/build-release.sh` 重新构建。需要像普通应用一样从“应用程序”、Spotlight 或启动台打开时，可将 Release 目录中的 `RawGeoSync.app` 拖入 `/Applications`；更新代码并重新构建后，需要重新替换该副本。
+
 相机时钟偏移定义为：`相机显示时间 - 真实当地时间`。相机快了 30 秒时填写 `+30`，匹配时应用会从照片时间减去30秒。
 
 ## 许可证
