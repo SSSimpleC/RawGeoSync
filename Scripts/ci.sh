@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="${0:A:h:h}"
-export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 TEMP_ROOT="${TMPDIR:-/tmp}"
 DERIVED_DATA="$(mktemp -d "${TEMP_ROOT%/}/RawGeoSync-CI.XXXXXX")"
 
