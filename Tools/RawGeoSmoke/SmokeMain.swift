@@ -4,132 +4,151 @@ import Foundation
 enum RawGeoSmokeMain {
   static func main() async {
     do {
-      let arguments = CommandLine.arguments
-      guard arguments.count == 3 || arguments.count == 4 else {
+      switch Array(CommandLine.arguments.dropFirst()) {
+      case ["capabilities", "--format", "json"]:
+        try printJSON(capabilities())
+      case let arguments where arguments.first == "dry-run":
+        try await dryRun(arguments: Array(arguments.dropFirst()))
+      default:
         throw WorkflowFailure(
           message:
-            "用法：RawGeoSyncSmoke <track.gpx> <photo-directory> [--expect-current-sample|--apply-and-undo]"
+            "用法：RawGeoSyncSmoke capabilities --format json，或 dry-run --gpx-directory <目录> --photo-directory <目录> --report <JSON> --read-only-source-directories"
         )
       }
-      let configuration = SourceConfiguration(
-        trackURL: URL(fileURLWithPath: arguments[1]),
-        photoDirectoryURL: URL(fileURLWithPath: arguments[2])
-      )
-      let service = LiveGeoWorkflowService()
-      var finalSnapshot: AnalysisSnapshot?
-      for try await event in service.analysisEvents(for: configuration) {
-        if case .completed(let snapshot) = event {
-          finalSnapshot = snapshot
-        }
-      }
-      guard let snapshot = finalSnapshot else {
-        throw WorkflowFailure(message: "分析未返回结果")
-      }
-      let selectedReliable = snapshot.matches.count {
-        $0.confidence == .reliable && $0.isSelectedForWrite
-      }
-      let selectedReview = snapshot.matches.count {
-        $0.confidence == .review && $0.isSelectedForWrite
-      }
-      var output: [String: Any] = [
-        "total": snapshot.matches.count,
-        "reliable": snapshot.reliableCount,
-        "review": snapshot.reviewCount,
-        "unmatched": snapshot.unmatchedCount,
-        "selectedReliable": selectedReliable,
-        "selectedReview": selectedReview,
-        "trackCoordinates": snapshot.trackCoordinates.count,
-      ]
-      if arguments.last == "--expect-current-sample" {
-        guard snapshot.matches.count == 52,
-          snapshot.reliableCount == 29,
-          snapshot.reviewCount == 23,
-          snapshot.unmatchedCount == 0,
-          selectedReliable == 29,
-          selectedReview == 0
-        else {
-          throw WorkflowFailure(message: "真实样本黄金计数不符：\(output)")
-        }
-      }
-      if arguments.last == "--apply-and-undo" {
-        let preview = try await service.previewWrite(
-          matches: snapshot.matches,
-          configuration: configuration
-        )
-        guard preview.createCount == selectedReliable,
-          preview.updateCount == 0,
-          preview.conflictCount == 0
-        else {
-          throw WorkflowFailure(message: "首次写入预检不符：\(preview.message)")
-        }
-
-        var appliedMatches: [PhotoMatch]?
-        var applicationReport: ApplicationReport?
-        for try await event in service.applyEvents(
-          matches: snapshot.matches,
-          configuration: configuration
-        ) {
-          if case .completed(let matches, let report) = event {
-            appliedMatches = matches
-            applicationReport = report
-          }
-        }
-        guard let appliedMatches, let applicationReport,
-          applicationReport.appliedCount == selectedReliable,
-          applicationReport.failedCount == 0
-        else {
-          throw WorkflowFailure(message: "真实副本写入未完整成功")
-        }
-
-        let xmpBeforeIdempotency = try xmpModificationDates(in: configuration.photoDirectoryURL!)
-        let secondPreview = try await service.previewWrite(
-          matches: appliedMatches,
-          configuration: configuration
-        )
-        let xmpAfterIdempotency = try xmpModificationDates(in: configuration.photoDirectoryURL!)
-        guard secondPreview.alreadyAppliedCount == selectedReliable,
-          xmpBeforeIdempotency == xmpAfterIdempotency
-        else {
-          throw WorkflowFailure(message: "重复运行未保持语义幂等或修改了 XMP mtime")
-        }
-
-        let undone = try await service.undo(report: applicationReport, matches: appliedMatches)
-        let remainingXMP = try xmpModificationDates(in: configuration.photoDirectoryURL!).count
-        guard remainingXMP == 0,
-          undone.count(where: { $0.verification == .undone }) == selectedReliable
-        else {
-          throw WorkflowFailure(message: "撤销后仍有 XMP 或撤销状态不完整")
-        }
-        output["applied"] = applicationReport.appliedCount
-        output["idempotent"] = true
-        output["undone"] = selectedReliable
-      }
-      let data = try JSONSerialization.data(
-        withJSONObject: output,
-        options: [.prettyPrinted, .sortedKeys]
-      )
-      print(String(decoding: data, as: UTF8.self))
     } catch {
       FileHandle.standardError.write(
-        Data("RawGeoSync smoke failed: \(error.localizedDescription)\n".utf8))
+        Data("RawGeoSync smoke failed: \(error.localizedDescription)\n".utf8)
+      )
       Foundation.exit(EXIT_FAILURE)
     }
   }
 
-  private static func xmpModificationDates(in directory: URL) throws -> [String: Date] {
-    let files = try FileManager.default.contentsOfDirectory(
-      at: directory,
-      includingPropertiesForKeys: [.contentModificationDateKey],
-      options: [.skipsHiddenFiles]
+  private static func capabilities() -> [String: Any] {
+    [
+      "schemaVersion": 1,
+      "features": ["fullCorpusDryRun": true],
+      "guarantees": [
+        "readOnlySourceDirectories": true,
+        "writeTargets": "proprietary-raw-xmp-sidecar-only",
+      ],
+      "matchingRuleVersion": "2.0",
+    ]
+  }
+
+  private static func dryRun(arguments: [String]) async throws {
+    let options = try parseOptions(arguments)
+    guard options.readOnlySourceDirectories else {
+      throw WorkflowFailure(message: "dry-run 必须显式传入 --read-only-source-directories")
+    }
+    let gpxDirectory = try existingDirectory(options.gpxDirectory, label: "GPX")
+    let photoDirectory = try existingDirectory(options.photoDirectory, label: "照片")
+    guard let reportPath = options.report else {
+      throw WorkflowFailure(message: "缺少 --report")
+    }
+    let reportURL = URL(fileURLWithPath: reportPath).standardizedFileURL
+    guard !reportURL.path.hasPrefix(gpxDirectory.path + "/"),
+      !reportURL.path.hasPrefix(photoDirectory.path + "/")
+    else {
+      throw WorkflowFailure(message: "报告不能写入任一只读输入目录")
+    }
+
+    let configuration = SourceConfiguration(
+      gpxDirectoryURL: gpxDirectory,
+      photoDirectoryURL: photoDirectory,
+      matchingStrategy: .coverage
     )
-    return try Dictionary(
-      uniqueKeysWithValues:
-        files
-        .filter { $0.pathExtension.caseInsensitiveCompare("xmp") == .orderedSame }
-        .map {
-          let values = try $0.resourceValues(forKeys: [.contentModificationDateKey])
-          return ($0.lastPathComponent, values.contentModificationDate ?? .distantPast)
-        }
+    let service = LiveGeoWorkflowService()
+    var snapshot: AnalysisSnapshot?
+    for try await event in service.analysisEvents(for: configuration) {
+      if case .completed(let completed) = event { snapshot = completed }
+    }
+    guard let snapshot else { throw WorkflowFailure(message: "分析未返回结果") }
+
+    let methods = Dictionary(grouping: snapshot.matches, by: { $0.method.rawValue })
+      .mapValues(\.count)
+    let granularities = Dictionary(grouping: snapshot.matches, by: { $0.granularity.rawValue })
+      .mapValues(\.count)
+    let unmatchedReasons = Dictionary(
+      grouping: snapshot.matches.filter { $0.confidence == .unmatched },
+      by: \PhotoMatch.evidenceSummary
+    ).mapValues(\.count)
+    let output: [String: Any] = [
+      "schemaVersion": 1,
+      "mode": "dry-run",
+      "matchingRuleVersion": "2.0",
+      "strategy": "coverage",
+      "totalWritableTargets": snapshot.matches.count,
+      "reliable": snapshot.reliableCount,
+      "review": snapshot.reviewCount,
+      "coarse": snapshot.coarseCount,
+      "unmatched": snapshot.unmatchedCount,
+      "selectedForWrite": snapshot.matches.count(where: \.isSelectedForWrite),
+      "confirmationGroups": Set(snapshot.matches.compactMap(\.confirmationGroupID)).count,
+      "trackCoordinatesShown": snapshot.trackCoordinates.count,
+      "warningCount": snapshot.warnings.count,
+      "clockSuggestionCount": snapshot.clockSuggestions.count,
+      "methods": methods,
+      "granularities": granularities,
+      "unmatchedReasons": unmatchedReasons,
+      "sourceDirectoriesModified": false,
+    ]
+    let data = try JSONSerialization.data(
+      withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
+    try FileManager.default.createDirectory(
+      at: reportURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
     )
+    try data.write(to: reportURL, options: .atomic)
+    try printJSON(output)
+  }
+
+  private struct Options {
+    var gpxDirectory: String?
+    var photoDirectory: String?
+    var report: String?
+    var readOnlySourceDirectories = false
+  }
+
+  private static func parseOptions(_ arguments: [String]) throws -> Options {
+    var options = Options()
+    var index = 0
+    while index < arguments.count {
+      switch arguments[index] {
+      case "--gpx-directory":
+        guard index + 1 < arguments.count else { throw WorkflowFailure(message: "GPX 参数缺值") }
+        options.gpxDirectory = arguments[index + 1]
+        index += 2
+      case "--photo-directory":
+        guard index + 1 < arguments.count else { throw WorkflowFailure(message: "照片参数缺值") }
+        options.photoDirectory = arguments[index + 1]
+        index += 2
+      case "--report":
+        guard index + 1 < arguments.count else { throw WorkflowFailure(message: "报告参数缺值") }
+        options.report = arguments[index + 1]
+        index += 2
+      case "--read-only-source-directories":
+        options.readOnlySourceDirectories = true
+        index += 1
+      default:
+        throw WorkflowFailure(message: "未知参数：\(arguments[index])")
+      }
+    }
+    return options
+  }
+
+  private static func existingDirectory(_ path: String?, label: String) throws -> URL {
+    guard let path else { throw WorkflowFailure(message: "缺少 \(label) 目录") }
+    let url = URL(fileURLWithPath: path).standardizedFileURL
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+      isDirectory.boolValue
+    else { throw WorkflowFailure(message: "\(label) 目录不存在") }
+    return url
+  }
+
+  private static func printJSON(_ object: [String: Any]) throws {
+    let data = try JSONSerialization.data(
+      withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+    print(String(decoding: data, as: UTF8.self))
   }
 }

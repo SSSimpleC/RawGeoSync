@@ -23,6 +23,7 @@ public struct ExifToolConfiguration: Hashable, Sendable {
     ExifToolConfiguration(
       executableURL: URL(fileURLWithPath: "/usr/bin/perl"),
       leadingArguments: [scriptURL.standardizedFileURL.path],
+      timeout: .seconds(120),
       minimumVersion: try ExifToolVersion("13.59")
     )
   }
@@ -81,6 +82,25 @@ private enum JSONValue: Codable, Hashable, Sendable {
     default: nil
     }
   }
+
+  var int64Value: Int64? {
+    switch self {
+    case .number(let value) where value.isFinite:
+      Int64(exactly: value)
+    case .string(let value):
+      Int64(value)
+    default:
+      nil
+    }
+  }
+
+  var canonicalStringValue: String? {
+    if let stringValue { return stringValue }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    guard let data = try? encoder.encode(self) else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
 }
 
 public actor ExifToolClient: MetadataTooling {
@@ -107,10 +127,21 @@ public actor ExifToolClient: MetadataTooling {
   }
 
   public func readRawMetadata(_ files: [ReadOnlyRawFile]) async throws -> [RawPhotoMetadata] {
+    let mediaMetadata = try await readMediaMetadata(files.map(\.mediaFile))
+    let byURL = Dictionary(uniqueKeysWithValues: mediaMetadata.map { ($0.mediaFile.url, $0) })
+    return try files.map { rawFile in
+      guard let metadata = byURL[rawFile.url] else {
+        throw MetadataInfrastructureError.missingMetadata(rawFile.url)
+      }
+      return RawPhotoMetadata(mediaMetadata: metadata, rawFile: rawFile)
+    }
+  }
+
+  public func readMediaMetadata(_ files: [ReadOnlyMediaFile]) async throws -> [MediaMetadata] {
     guard !files.isEmpty else { return [] }
     let arguments =
       [
-        "-json", "-G1", "-a", "-s",
+        "-json", "-G1", "-a", "-s", "-struct",
         "-EXIF:DateTimeOriginal",
         "-EXIF:SubSecTimeOriginal",
         "-EXIF:OffsetTimeOriginal",
@@ -118,6 +149,19 @@ public actor ExifToolClient: MetadataTooling {
         "-EXIF:GPSLongitude#",
         "-EXIF:GPSAltitude#",
         "-EXIF:GPSAltitudeRef#",
+        "-Make",
+        "-Model",
+        "-SerialNumber",
+        "-InternalSerialNumber",
+        "-ShutterCount#",
+        "-FileSize#",
+        "-GPSDateTime",
+        "-GPSHPositioningError#",
+        "-DocumentID",
+        "-OriginalDocumentID",
+        "-DerivedFrom",
+        "-Software",
+        "-XMPToolkit",
       ] + files.map(\.url.path)
     let objects = try await readJSON(arguments)
     var byPath: [String: [String: JSONValue]] = [:]
@@ -126,18 +170,69 @@ public actor ExifToolClient: MetadataTooling {
       byPath[URL(fileURLWithPath: sourcePath).standardizedFileURL.path] = object
     }
 
-    return try files.map { rawFile in
-      guard let object = byPath[rawFile.url.path] else {
-        throw MetadataInfrastructureError.missingMetadata(rawFile.url)
+    return try files.map { mediaFile in
+      guard let object = byPath[mediaFile.url.path] else {
+        throw MetadataInfrastructureError.missingMetadata(mediaFile.url)
       }
       let parsedGPS = try parsedGPS(in: object)
-      return RawPhotoMetadata(
-        rawFile: rawFile,
+      return MediaMetadata(
+        mediaFile: mediaFile,
         dateTimeOriginal: value(in: object, suffix: "DateTimeOriginal")?.stringValue,
         subsecondTimeOriginal: value(in: object, suffix: "SubSecTimeOriginal")?.stringValue,
         offsetTimeOriginal: value(in: object, suffix: "OffsetTimeOriginal")?.stringValue,
         gps: parsedGPS.metadata,
-        gpsIsPartial: parsedGPS.isPartial
+        gpsIsPartial: parsedGPS.isPartial,
+        make: value(in: object, preferredKeys: ["IFD0:Make"], suffix: "Make")?.stringValue,
+        model: value(in: object, preferredKeys: ["IFD0:Model"], suffix: "Model")?.stringValue,
+        serialNumber: value(
+          in: object,
+          preferredKeys: ["Nikon:SerialNumber", "EXIF:SerialNumber"],
+          suffix: "SerialNumber"
+        )?.stringValue,
+        internalSerialNumber: value(
+          in: object,
+          preferredKeys: ["Nikon:InternalSerialNumber"],
+          suffix: "InternalSerialNumber"
+        )?.stringValue,
+        shutterCount: value(
+          in: object,
+          preferredKeys: ["Nikon:ShutterCount"],
+          suffix: "ShutterCount"
+        )?.int64Value.flatMap(Int.init(exactly:)),
+        fileSize: value(in: object, preferredKeys: ["File:FileSize"], suffix: "FileSize")?
+          .int64Value,
+        gpsDateTime: value(
+          in: object,
+          preferredKeys: ["Composite:GPSDateTime", "EXIF:GPSDateTime"],
+          suffix: "GPSDateTime"
+        )?.stringValue,
+        gpsHorizontalPositioningError: value(
+          in: object,
+          preferredKeys: ["EXIF:GPSHPositioningError"],
+          suffix: "GPSHPositioningError"
+        )?.doubleValue,
+        documentID: value(
+          in: object,
+          preferredKeys: ["XMP-xmpMM:DocumentID"],
+          suffix: "DocumentID"
+        )?.stringValue,
+        originalDocumentID: value(
+          in: object,
+          preferredKeys: ["XMP-xmpMM:OriginalDocumentID"],
+          suffix: "OriginalDocumentID"
+        )?.stringValue,
+        derivedFrom: value(
+          in: object,
+          preferredKeys: ["XMP-xmpMM:DerivedFrom"],
+          suffix: "DerivedFrom"
+        )?.canonicalStringValue,
+        software: value(in: object, preferredKeys: ["IFD0:Software"], suffix: "Software")?
+          .stringValue,
+        xmpToolkit: value(
+          in: object,
+          preferredKeys: ["XMP-x:XMPToolkit"],
+          suffix: "XMPToolkit"
+        )?.stringValue
       )
     }
   }
@@ -156,6 +251,22 @@ public actor ExifToolClient: MetadataTooling {
       throw MetadataInfrastructureError.missingMetadata(sidecar.url)
     }
     let parsedGPS = try parsedGPS(in: object)
+    let documentID = value(
+      in: object, preferredKeys: ["XMP-xmpMM:DocumentID"], suffix: "DocumentID"
+    )?.stringValue
+    let originalDocumentID = value(
+      in: object,
+      preferredKeys: ["XMP-xmpMM:OriginalDocumentID"],
+      suffix: "OriginalDocumentID"
+    )?.stringValue
+    let derivedFrom = value(
+      in: object, preferredKeys: ["XMP-xmpMM:DerivedFrom"], suffix: "DerivedFrom"
+    )?.canonicalStringValue
+    let software = value(in: object, preferredKeys: ["IFD0:Software"], suffix: "Software")?
+      .stringValue
+    let xmpToolkit = value(
+      in: object, preferredKeys: ["XMP-x:XMPToolkit"], suffix: "XMPToolkit"
+    )?.stringValue
     object = object.filter { key, _ in
       !Self.ignoredForSemanticDigest(key)
     }
@@ -166,7 +277,12 @@ public actor ExifToolClient: MetadataTooling {
     return SidecarMetadata(
       gps: parsedGPS.metadata,
       gpsIsPartial: parsedGPS.isPartial,
-      nonGPSSemanticDigest: digest
+      nonGPSSemanticDigest: digest,
+      documentID: documentID,
+      originalDocumentID: originalDocumentID,
+      derivedFrom: derivedFrom,
+      software: software,
+      xmpToolkit: xmpToolkit
     )
   }
 
@@ -216,6 +332,17 @@ public actor ExifToolClient: MetadataTooling {
     object.first { key, _ in
       key == suffix || key.hasSuffix(":\(suffix)")
     }?.value
+  }
+
+  private func value(
+    in object: [String: JSONValue],
+    preferredKeys: [String],
+    suffix: String
+  ) -> JSONValue? {
+    for key in preferredKeys {
+      if let value = object[key] { return value }
+    }
+    return value(in: object, suffix: suffix)
   }
 
   private func parsedGPS(in object: [String: JSONValue]) throws -> (

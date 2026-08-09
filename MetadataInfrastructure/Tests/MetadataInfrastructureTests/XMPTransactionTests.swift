@@ -275,6 +275,82 @@ struct XMPTransactionTests {
     #expect(try Data(contentsOf: sidecar.url) == Data("Lightroom changed this".utf8))
   }
 
+  @Test("only a proven stronger RawGeoSync provenance can auto-replace existing GPS")
+  func strongerProvenanceReplacement() async throws {
+    let context = try FixtureContext(rawNames: ["DSC_0013.NEF"])
+    defer { context.remove() }
+    let raw = context.rawFiles[0]
+    let sidecar = try SidecarURL(for: raw)
+    let tool = FakeMetadataTool()
+    let coordinator = XMPTransactionCoordinator(metadataTool: tool, backupRoot: context.backupRoot)
+    let weak = MatchProvenance(
+      source: .nearestTrackPoint,
+      verification: .automatic,
+      algorithmVersion: "matcher-v2",
+      trackFileSHA256: String(repeating: "1", count: 64)
+    )
+    let strong = MatchProvenance(
+      source: .exactTrackPoint,
+      verification: .userConfirmed,
+      algorithmVersion: "matcher-v2",
+      trackFileSHA256: String(repeating: "2", count: 64)
+    )
+    let firstGPS = try GPSMetadata(latitude: 22, longitude: 113)
+    let secondGPS = try GPSMetadata(latitude: 22.1, longitude: 113.1)
+    let firstPlan = try await coordinator.makeWritePlan([
+      SidecarWriteRequest(rawFile: raw, gps: firstGPS, matchProvenance: weak)
+    ])
+    let firstReport = try await coordinator.apply(firstPlan)
+    #expect(firstReport.appliedCount == 1)
+
+    let notStronger = try await coordinator.makeWritePlan([
+      SidecarWriteRequest(
+        rawFile: raw,
+        gps: secondGPS,
+        existingGPSPolicy: .replaceIfStrongerProvenance,
+        matchProvenance: weak
+      )
+    ])
+    guard case .conflict = notStronger.items[0].disposition else {
+      Issue.record("同强度来源不应自动替换")
+      return
+    }
+
+    let stronger = try await coordinator.makeWritePlan([
+      SidecarWriteRequest(
+        rawFile: raw,
+        gps: secondGPS,
+        existingGPSPolicy: .replaceIfStrongerProvenance,
+        matchProvenance: strong
+      )
+    ])
+    #expect(stronger.items[0].disposition == .update)
+    #expect(stronger.items[0].existingGPSOrigin == .rawGeoSyncTransaction)
+    #expect(stronger.items[0].existingMatchProvenance == weak)
+    #expect(stronger.items[0].provenanceTransactionID == firstReport.transactionID)
+    _ = try await coordinator.apply(stronger)
+
+    let external = FixtureSidecar(gps: secondGPS, semantic: "external-xmp-edit")
+    try JSONEncoder().encode(external).write(to: sidecar.url)
+    let unknownExternal = try await coordinator.makeWritePlan([
+      SidecarWriteRequest(
+        rawFile: raw,
+        gps: try GPSMetadata(latitude: 22.2, longitude: 113.2),
+        existingGPSPolicy: .replaceIfStrongerProvenance,
+        matchProvenance: MatchProvenance(
+          source: .manual,
+          verification: .manual,
+          algorithmVersion: "matcher-v2"
+        )
+      )
+    ])
+    #expect(unknownExternal.items[0].existingGPSOrigin == .externalSidecar)
+    guard case .conflict = unknownExternal.items[0].disposition else {
+      Issue.record("未知外部 XMP 即使新来源更强也必须受保护")
+      return
+    }
+  }
+
   @Test("cleanup retains only the latest ten batches younger than thirty days")
   func backupRetention() async throws {
     let context = try FixtureContext(rawNames: [])

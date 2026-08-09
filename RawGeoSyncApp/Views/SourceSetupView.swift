@@ -1,10 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
-
-extension UTType {
-  fileprivate static let gpx = UTType(filenameExtension: "gpx", conformingTo: .xml)!
-}
 
 struct SourceSetupView: View {
   @EnvironmentObject private var workspace: WorkspaceViewModel
@@ -35,17 +30,17 @@ struct SourceSetupView: View {
 
         HStack(spacing: 16) {
           SourcePickerCard(
-            title: "手机轨迹",
-            description: "支持标准 GPX；时间应为 UTC 或包含时区。",
+            title: "GPX 轨迹目录",
+            description: "自动读取目录内与照片时间窗口相关的全部 GPX。",
             systemImage: "point.topleft.down.to.point.bottomright.curvepath",
-            url: workspace.configuration.trackURL,
-            actionTitle: "选择 GPX…",
-            action: chooseTrack,
-            onDropURL: setTrackURL
+            url: workspace.configuration.gpxDirectoryURL,
+            actionTitle: "选择 GPX 目录…",
+            action: chooseGPXFolder,
+            onDropURL: setGPXFolderURL
           )
           SourcePickerCard(
-            title: "RAW 文件夹",
-            description: "完整验证 Nikon NEF；其他常见 RAW/JPEG/TIFF 为实验性，原文件始终只读。",
+            title: "照片活动或 RAW 目录",
+            description: "可选择活动根目录或单个相机目录；递归发现专有 RAW 和只读证据。",
             systemImage: "camera.aperture",
             url: workspace.configuration.photoDirectoryURL,
             actionTitle: "选择文件夹…",
@@ -55,8 +50,25 @@ struct SourceSetupView: View {
         }
         .frame(minHeight: 190)
 
-        GroupBox("时间与写入策略") {
+        GroupBox("匹配、时间与写入策略") {
           Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 16) {
+            GridRow {
+              SettingLabel(
+                title: "匹配策略",
+                detail: workspace.configuration.matchingStrategy.detail,
+                systemImage: "scope"
+              )
+              Picker("", selection: $workspace.configuration.matchingStrategy) {
+                ForEach(MatchingStrategy.allCases) { strategy in
+                  Text(strategy.title).tag(strategy)
+                }
+              }
+              .labelsHidden()
+              .frame(maxWidth: 270, alignment: .leading)
+            }
+
+            Divider().gridCellUnsizedAxes(.horizontal)
+
             GridRow {
               SettingLabel(
                 title: "拍摄地时区",
@@ -104,7 +116,7 @@ struct SourceSetupView: View {
             GridRow {
               SettingLabel(
                 title: "输出方式",
-                detail: "在 RAW 同目录原子创建或合并同名 sidecar",
+                detail: "仅为 NEF、ARW 等专有 RAW 创建同名 sidecar",
                 systemImage: "doc.badge.gearshape"
               )
               Picker("", selection: $workspace.configuration.outputMode) {
@@ -133,10 +145,10 @@ struct SourceSetupView: View {
             GridRow {
               SettingLabel(
                 title: "已有坐标",
-                detail: "默认取消选择；在预览中重新勾选才表示明确替换",
+                detail: "新来源可证明更强时自动采用；未知外部 XMP 仍受保护",
                 systemImage: "shield.checkered"
               )
-              Text("先跳过，逐项确认")
+              Text("强来源优先，未知来源保护")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 270, alignment: .leading)
             }
@@ -177,17 +189,17 @@ struct SourceSetupView: View {
     }
   }
 
-  private func chooseTrack() {
+  private func chooseGPXFolder() {
     let panel = NSOpenPanel()
-    panel.title = "选择手机导出的 GPX 轨迹"
-    panel.prompt = "选择轨迹"
-    panel.allowedContentTypes = [.gpx]
+    panel.title = "选择存放 GPX 轨迹的目录"
+    panel.prompt = "选择目录"
     panel.allowsMultipleSelection = false
-    panel.canChooseFiles = true
-    panel.canChooseDirectories = false
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.canCreateDirectories = false
     panel.resolvesAliases = true
     guard panel.runModal() == .OK, let url = panel.url else { return }
-    setTrackURL(url)
+    setGPXFolderURL(url)
   }
 
   private func choosePhotoFolder() {
@@ -203,12 +215,15 @@ struct SourceSetupView: View {
     setPhotoFolderURL(url)
   }
 
-  private func setTrackURL(_ url: URL) {
-    guard url.pathExtension.lowercased() == "gpx" else {
-      workspace.errorMessage = "请选择扩展名为 .gpx 的轨迹文件。"
+  private func setGPXFolderURL(_ url: URL) {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+      isDirectory.boolValue
+    else {
+      workspace.errorMessage = "请选择包含 GPX 文件的目录。"
       return
     }
-    workspace.configuration.trackURL = url
+    workspace.configuration.gpxDirectoryURL = url
   }
 
   private func setPhotoFolderURL(_ url: URL) {

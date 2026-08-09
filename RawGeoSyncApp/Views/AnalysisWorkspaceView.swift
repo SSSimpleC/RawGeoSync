@@ -7,6 +7,46 @@ struct AnalysisWorkspaceView: View {
   var body: some View {
     VStack(spacing: 0) {
       analysisToolbar
+      if !workspace.analysisWarnings.isEmpty {
+        HStack(spacing: 8) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+          Text("分析中有 \(workspace.analysisWarnings.count) 项警告")
+            .font(.caption.weight(.medium))
+          Text(workspace.analysisWarnings.prefix(2).joined(separator: "；"))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+          Spacer()
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 34)
+        .background(Color.orange.opacity(0.08))
+      }
+      if !workspace.clockSuggestions.isEmpty {
+        ScrollView(.horizontal) {
+          HStack(spacing: 12) {
+            Label("检测到相机时钟校正建议", systemImage: "clock.badge.exclamationmark")
+              .font(.caption.weight(.semibold))
+            ForEach(workspace.clockSuggestions) { suggestion in
+              HStack(spacing: 7) {
+                Text(
+                  "\(suggestion.cameraLabel)：相机快 \(suggestion.cameraAheadBySeconds) 秒 · \(suggestion.evidenceCount) 个独立依据"
+                )
+                .font(.caption)
+                Button("采用并重新分析") {
+                  workspace.acceptClockSuggestion(suggestion)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+              }
+            }
+          }
+          .padding(.horizontal, 16)
+        }
+        .frame(height: 40)
+        .background(Color.blue.opacity(0.07))
+      }
       Divider()
       summaryStrip
       Divider()
@@ -64,7 +104,7 @@ struct AnalysisWorkspaceView: View {
         }
       }
       .pickerStyle(.segmented)
-      .frame(width: 300)
+      .frame(width: 390)
 
       TextField("搜索文件名", text: $workspace.searchText)
         .textFieldStyle(.roundedBorder)
@@ -83,6 +123,20 @@ struct AnalysisWorkspaceView: View {
       }
       .disabled(workspace.filteredMatches.isEmpty || workspace.isBusy)
       .help("直接勾选当前筛选中的全部照片；已有 GPS 的照片会在预检中列为更新，未匹配照片获得坐标前会安全跳过")
+
+      Divider().frame(height: 20)
+
+      Button("选择同组") {
+        workspace.selectRelatedConfirmationGroups()
+      }
+      .disabled(!workspace.hasRelatedConfirmationGroup || workspace.isBusy)
+      .help("展开当前照片所属的停留、连拍或活动候选批次")
+
+      Button("采用同组") {
+        workspace.confirmSelectedGroups()
+      }
+      .disabled(!workspace.hasRelatedConfirmationGroup || workspace.isBusy)
+      .help("为同一候选批次的全部可写照片打勾")
 
       Divider().frame(height: 20)
 
@@ -116,6 +170,12 @@ struct AnalysisWorkspaceView: View {
         value: "\(workspace.reviewCount)",
         systemImage: "exclamationmark.triangle.fill",
         tint: .orange
+      )
+      MetricCard(
+        title: "粗略区域",
+        value: "\(workspace.coarseCount)",
+        systemImage: "map.fill",
+        tint: .purple
       )
       MetricCard(
         title: "将跳过",
@@ -161,6 +221,7 @@ struct AnalysisWorkspaceView: View {
             )
           )
           .labelsHidden()
+          .disabled(!match.isWritableTarget)
           .help(match.coordinate == nil ? "已勾选；获得坐标前会安全跳过" : "勾选后纳入写入计划")
         }
         .width(42)
@@ -193,7 +254,7 @@ struct AnalysisWorkspaceView: View {
         }
         .width(min: 72, ideal: 82)
 
-        TableColumn("坐标 / 源定位精度") { match in
+        TableColumn("坐标 / 证据") { match in
           VStack(alignment: .leading, spacing: 1) {
             Text(match.coordinate?.shortDescription ?? "—")
               .font(.caption.monospacedDigit())
@@ -203,9 +264,13 @@ struct AnalysisWorkspaceView: View {
                 .foregroundStyle(.red)
                 .lineLimit(1)
             } else {
-              Text(match.sourceLocationAccuracy.description)
+              Text("\(match.granularity.title) · \(match.sourceLocationAccuracy.description)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+              Text(match.evidenceSummary)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
             }
           }
         }
@@ -387,6 +452,7 @@ private struct MatchMapView: View {
     switch match.confidence {
     case .reliable: return .green
     case .review: return .orange
+    case .coarse: return .purple
     case .unmatched: return .red
     }
   }

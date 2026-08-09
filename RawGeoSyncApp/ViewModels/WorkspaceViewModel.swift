@@ -6,6 +6,8 @@ final class WorkspaceViewModel: ObservableObject {
   @Published var configuration = SourceConfiguration()
   @Published var matches: [PhotoMatch] = []
   @Published var trackCoordinates: [GeoCoordinate] = []
+  @Published var analysisWarnings: [String] = []
+  @Published var clockSuggestions: [ClockSuggestionInfo] = []
   @Published var selectedMatches: Set<PhotoMatch.ID> = []
   @Published var confidenceFilter: ConfidenceFilter = .all
   @Published var searchText = ""
@@ -51,9 +53,13 @@ final class WorkspaceViewModel: ObservableObject {
 
   var reliableCount: Int { matches.count(where: { $0.confidence == .reliable }) }
   var reviewCount: Int { matches.count(where: { $0.confidence == .review }) }
+  var coarseCount: Int { matches.count(where: { $0.confidence == .coarse }) }
   var unmatchedCount: Int { matches.count(where: { $0.confidence == .unmatched }) }
   var writableCount: Int {
-    matches.count(where: { $0.isSelectedForWrite && $0.coordinate != nil })
+    matches.count(where: {
+      $0.isSelectedForWrite && $0.coordinate != nil && $0.isWritableTarget
+        && !$0.hasProtectedExternalXMP
+    })
   }
 
   var checkedPhotoCount: Int {
@@ -61,16 +67,23 @@ final class WorkspaceViewModel: ObservableObject {
   }
 
   var areAllFilteredPhotosChecked: Bool {
-    !filteredMatches.isEmpty && filteredMatches.allSatisfy(\.isSelectedForWrite)
+    let eligible = filteredMatches.filter(\.isWritableTarget)
+    return !eligible.isEmpty && eligible.allSatisfy(\.isSelectedForWrite)
   }
 
   var canApply: Bool {
     writableCount > 0 && !isBusy
   }
 
+  var hasRelatedConfirmationGroup: Bool {
+    matches.contains { match in
+      selectedMatches.contains(match.id) && match.confirmationGroupID != nil
+    }
+  }
+
   func analyze() {
     guard configuration.isReady else {
-      errorMessage = "请先选择 GPX 文件和 RAW 文件夹。"
+      errorMessage = "请先选择 GPX 目录和照片目录。"
       return
     }
 
@@ -92,6 +105,8 @@ final class WorkspaceViewModel: ObservableObject {
           case .completed(let snapshot):
             matches = snapshot.matches
             trackCoordinates = snapshot.trackCoordinates
+            analysisWarnings = snapshot.warnings
+            clockSuggestions = snapshot.clockSuggestions
             selectedMatches = []
             confidenceFilter = .all
             stage = .analysis
@@ -228,7 +243,11 @@ final class WorkspaceViewModel: ObservableObject {
         matches[index].coordinate = coordinate
         matches[index].method = method
         matches[index].confidence = .review
+        matches[index].granularity = method == .manual ? .manual : .photoCluster
         matches[index].sourceLocationAccuracy = .notProvided
+        matches[index].evidenceSummary =
+          method == .manual ? "用户在地图上指定" : "用户采用轨迹端点"
+        matches[index].supportSpreadMeters = nil
         matches[index].note = method == .manual ? "由用户在地图上手工指定" : "由用户批量指定为\(method.title)"
         matches[index].isSelectedForWrite = true
       }
@@ -241,14 +260,40 @@ final class WorkspaceViewModel: ObservableObject {
     isManualPlacementEnabled = false
   }
 
+  func selectRelatedConfirmationGroups() {
+    let groupIDs = Set(
+      matches.compactMap { match in
+        selectedMatches.contains(match.id) ? match.confirmationGroupID : nil
+      })
+    guard !groupIDs.isEmpty else { return }
+    selectedMatches.formUnion(
+      matches.compactMap { match in
+        guard let groupID = match.confirmationGroupID, groupIDs.contains(groupID) else {
+          return nil
+        }
+        return match.id
+      })
+  }
+
+  func confirmSelectedGroups() {
+    selectRelatedConfirmationGroups()
+    for index in matches.indices where selectedMatches.contains(matches[index].id) {
+      guard matches[index].isWritableTarget, matches[index].coordinate != nil else { continue }
+      matches[index].isSelectedForWrite = true
+      matches[index].note = "已批量确认：\(matches[index].note)"
+    }
+  }
+
   func toggleFilteredPhotoCheckmarks() {
     let visibleIDs = Set(filteredMatches.map(\.id))
     let shouldSelect = !areAllFilteredPhotosChecked
     for index in matches.indices {
       guard visibleIDs.contains(matches[index].id) else { continue }
+      guard matches[index].isWritableTarget else { continue }
       if shouldSelect {
         matches[index].isSelectedForWrite = true
         if matches[index].hasExistingGPS {
+          matches[index].replacementExplicitlyAuthorized = true
           matches[index].note = "已通过全选明确授权用匹配位置替换现有 GPS"
         }
       } else {
@@ -259,10 +304,17 @@ final class WorkspaceViewModel: ObservableObject {
 
   func setWriteSelection(_ selected: Bool, for id: PhotoMatch.ID) {
     guard let index = matches.firstIndex(where: { $0.id == id }) else { return }
+    guard matches[index].isWritableTarget else { return }
     matches[index].isSelectedForWrite = selected
     if selected, matches[index].hasExistingGPS {
+      matches[index].replacementExplicitlyAuthorized = true
       matches[index].note = "已明确授权用匹配位置替换现有 GPS"
     }
+  }
+
+  func acceptClockSuggestion(_ suggestion: ClockSuggestionInfo) {
+    configuration.cameraClockOffsetsByID[suggestion.cameraID] = suggestion.cameraAheadBySeconds
+    analyze()
   }
 
   func cancelCurrentOperation() {
@@ -280,6 +332,8 @@ final class WorkspaceViewModel: ObservableObject {
     configuration = SourceConfiguration()
     matches = []
     trackCoordinates = []
+    analysisWarnings = []
+    clockSuggestions = []
     selectedMatches = []
     report = nil
     writePreview = nil

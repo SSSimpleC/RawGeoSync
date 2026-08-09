@@ -171,7 +171,7 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
         isUnmatched ? .unavailable : (isStationary ? .stationary : .interpolated)
 
       return PhotoMatch(
-        id: UUID(),
+        id: String(format: "demo-Z50-%04d", 386 + index),
         fileURL: (configuration.photoDirectoryURL ?? URL(fileURLWithPath: "/演示/Z50"))
           .appendingPathComponent(String(format: "DSC_%04d.NEF", 386 + index)),
         capturedAt: firstDate.addingTimeInterval(Double(index) * 155),
@@ -180,14 +180,20 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
         coordinate: coordinate,
         confidence: confidence,
         method: method,
+        granularity: isUnmatched ? .unavailable : (isStationary ? .photoCluster : .track),
         sourceLocationAccuracy: .notProvided,
+        evidenceSummary: isUnmatched ? "缺少可安全采用的证据" : "演示轨迹证据",
+        supportSpreadMeters: isStationary ? 96.7 : 101.0,
+        confirmationGroupID: isStationary ? "demo-stay" : nil,
         note: isUnmatched
           ? "长间隔且空间跨度过大，已阻止自动匹配" : (isStationary ? "长时间内位置变化较小，按停留区间处理" : "前后轨迹点连续，已执行线性插值"),
         isSelectedForWrite: confidence == .reliable,
-        hasExistingGPS: false
+        isWritableTarget: true,
+        hasExistingGPS: false,
+        hasProtectedExternalXMP: false
       )
     }
 
-    return AnalysisSnapshot(matches: matches, trackCoordinates: track)
+    return AnalysisSnapshot(matches: matches, trackCoordinates: track, warnings: [])
   }
 }
