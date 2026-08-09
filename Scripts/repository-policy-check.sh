@@ -9,11 +9,13 @@ fail() {
   exit 1
 }
 
+print "检查脚本语法与权限"
 for script in Scripts/*.sh; do
   /bin/zsh -n "$script" || fail "$script 不是有效的zsh脚本"
   [[ -x "$script" ]] || fail "$script 缺少可执行权限"
 done
 
+print "收集仓库文件清单"
 SCAN_FILES=()
 REPOSITORY_FILES=()
 while IFS= read -r repository_file; do
@@ -27,6 +29,7 @@ while IFS= read -r repository_file; do
   esac
 done < <(git ls-files --cached --others --exclude-standard)
 
+print "检查本机绝对路径"
 ABSOLUTE_PATH_SCAN_FILES=()
 for scan_file in "${SCAN_FILES[@]}"; do
   [[ "$scan_file" == "Scripts/repository-policy-check.sh" ]] \
@@ -41,6 +44,7 @@ ABSOLUTE_PATH_MATCHES="$(
   fail "跟踪文件包含本机绝对路径"
 }
 
+print "检查密钥与访问令牌"
 SECRET_MATCHES="$(
   grep -nEH '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}|sk-[0-9A-Za-z_-]{20,}|xox[baprs]-[0-9A-Za-z-]{10,})' \
     -- "${SCAN_FILES[@]}" || true
@@ -50,6 +54,7 @@ SECRET_MATCHES="$(
   fail "跟踪文件疑似包含私钥或访问令牌"
 }
 
+print "检查高精度坐标"
 SENSITIVE_TEXT_FILES=()
 for scan_file in "${SCAN_FILES[@]}"; do
   case "$scan_file" in
@@ -74,6 +79,7 @@ COORDINATE_MATCHES="$(
   fail "文档或脚本疑似包含高精度坐标"
 }
 
+print "检查禁止纳入版本控制的媒体与回归产物"
 FORBIDDEN_TRACKED_FILES=()
 for repository_file in "${REPOSITORY_FILES[@]}"; do
   lower_name="${repository_file:l}"
@@ -100,6 +106,7 @@ done
   fail "仓库跟踪了真实照片、XMP或非合成GPX"
 }
 
+print "检查Git空白字符"
 git diff --check
 git diff --cached --check
 git show --check --format= HEAD >/dev/null
