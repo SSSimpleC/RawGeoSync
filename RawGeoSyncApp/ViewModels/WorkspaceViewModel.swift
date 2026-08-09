@@ -56,18 +56,17 @@ final class WorkspaceViewModel: ObservableObject {
     matches.count(where: { $0.isSelectedForWrite && $0.coordinate != nil })
   }
 
-  var filteredSelectableWriteCount: Int {
-    filteredMatches.count(where: { $0.coordinate != nil && !$0.hasExistingGPS })
+  var checkedPhotoCount: Int {
+    matches.count(where: { $0.isSelectedForWrite })
   }
 
-  var areAllFilteredWritablePhotosSelected: Bool {
-    let selectable = filteredMatches.filter { $0.coordinate != nil && !$0.hasExistingGPS }
+  var filteredSelectablePhotoCount: Int {
+    filteredMatches.count(where: { !$0.hasExistingGPS })
+  }
+
+  var areAllFilteredPhotosChecked: Bool {
+    let selectable = filteredMatches.filter { !$0.hasExistingGPS }
     return !selectable.isEmpty && selectable.allSatisfy(\.isSelectedForWrite)
-  }
-
-  var areAllFilteredRowsSelected: Bool {
-    let visibleIDs = Set(filteredMatches.map(\.id))
-    return !visibleIDs.isEmpty && visibleIDs.isSubset(of: selectedMatches)
   }
 
   var canApply: Bool {
@@ -242,27 +241,18 @@ final class WorkspaceViewModel: ObservableObject {
     isManualPlacementEnabled = false
   }
 
-  func toggleFilteredRows() {
-    let visibleIDs = Set(filteredMatches.map(\.id))
-    if visibleIDs.isSubset(of: selectedMatches) {
-      selectedMatches.subtract(visibleIDs)
-    } else {
-      selectedMatches.formUnion(visibleIDs)
-    }
-  }
-
   func clearSelection() {
     selectedMatches.removeAll()
     isManualPlacementEnabled = false
   }
 
-  func toggleFilteredWritablePhotos() {
+  func toggleFilteredPhotoCheckmarks() {
     let visibleIDs = Set(filteredMatches.map(\.id))
-    let shouldSelect = !areAllFilteredWritablePhotosSelected
+    let shouldSelect = !areAllFilteredPhotosChecked
     for index in matches.indices {
       guard visibleIDs.contains(matches[index].id) else { continue }
       if shouldSelect {
-        guard matches[index].coordinate != nil, !matches[index].hasExistingGPS else { continue }
+        guard !matches[index].hasExistingGPS else { continue }
         matches[index].isSelectedForWrite = true
       } else {
         matches[index].isSelectedForWrite = false
@@ -271,9 +261,7 @@ final class WorkspaceViewModel: ObservableObject {
   }
 
   func setWriteSelection(_ selected: Bool, for id: PhotoMatch.ID) {
-    guard let index = matches.firstIndex(where: { $0.id == id }),
-      matches[index].coordinate != nil
-    else { return }
+    guard let index = matches.firstIndex(where: { $0.id == id }) else { return }
     matches[index].isSelectedForWrite = selected
     if selected, matches[index].hasExistingGPS {
       matches[index].note = "已明确授权用匹配位置替换现有 GPS"
