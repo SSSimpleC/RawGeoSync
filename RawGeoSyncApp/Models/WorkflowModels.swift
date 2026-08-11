@@ -34,7 +34,7 @@ enum WorkflowStage: Int, CaseIterable, Identifiable, Sendable {
 }
 
 struct SourceConfiguration: Equatable, Sendable {
-  var gpxDirectoryURL: URL?
+  var gpxSourceURL: URL?
   var photoDirectoryURL: URL?
   var timeZoneIdentifier = "Asia/Shanghai"
   var cameraClockOffsetSeconds = 0
@@ -43,7 +43,7 @@ struct SourceConfiguration: Equatable, Sendable {
   var matchingStrategy: MatchingStrategy = .coverage
   var outputMode: OutputMode = .xmpSidecar
 
-  var isReady: Bool { gpxDirectoryURL != nil && photoDirectoryURL != nil }
+  var isReady: Bool { gpxSourceURL != nil && photoDirectoryURL != nil }
 
   var timeZone: TimeZone {
     TimeZone(identifier: timeZoneIdentifier) ?? TimeZone(secondsFromGMT: 0)!

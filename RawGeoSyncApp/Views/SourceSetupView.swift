@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SourceSetupView: View {
   @EnvironmentObject private var workspace: WorkspaceViewModel
@@ -19,7 +20,7 @@ struct SourceSetupView: View {
         VStack(alignment: .leading, spacing: 7) {
           Text("让每张 RAW 回到拍摄地")
             .font(.largeTitle.weight(.semibold))
-          Text("先选择手机轨迹与相机文件夹。RawGeoSync 会在写入前展示每张照片的匹配依据和风险。")
+          Text("先选择手机轨迹文件（或目录）与相机文件夹。RawGeoSync 会在写入前展示每张照片的匹配依据和风险。")
             .font(.title3)
             .foregroundStyle(.secondary)
         }
@@ -30,13 +31,13 @@ struct SourceSetupView: View {
 
         HStack(spacing: 16) {
           SourcePickerCard(
-            title: "GPX 轨迹目录",
-            description: "自动读取目录内与照片时间窗口相关的全部 GPX。",
+            title: "GPX 轨迹",
+            description: "可选择单个 GPX 文件，或自动读取目录内与照片时间窗口相关的全部 GPX。",
             systemImage: "point.topleft.down.to.point.bottomright.curvepath",
-            url: workspace.configuration.gpxDirectoryURL,
-            actionTitle: "选择 GPX 目录…",
-            action: chooseGPXFolder,
-            onDropURL: setGPXFolderURL
+            url: workspace.configuration.gpxSourceURL,
+            actionTitle: "选择 GPX 文件或目录…",
+            action: chooseGPXSource,
+            onDropURL: setGPXSourceURL
           )
           SourcePickerCard(
             title: "照片活动或 RAW 目录",
@@ -189,17 +190,18 @@ struct SourceSetupView: View {
     }
   }
 
-  private func chooseGPXFolder() {
+  private func chooseGPXSource() {
     let panel = NSOpenPanel()
-    panel.title = "选择存放 GPX 轨迹的目录"
-    panel.prompt = "选择目录"
+    panel.title = "选择 GPX 轨迹文件或目录"
+    panel.prompt = "选择"
     panel.allowsMultipleSelection = false
-    panel.canChooseFiles = false
+    panel.canChooseFiles = true
     panel.canChooseDirectories = true
     panel.canCreateDirectories = false
     panel.resolvesAliases = true
+    panel.allowedContentTypes = [UTType(filenameExtension: "gpx") ?? .xml]
     guard panel.runModal() == .OK, let url = panel.url else { return }
-    setGPXFolderURL(url)
+    setGPXSourceURL(url)
   }
 
   private func choosePhotoFolder() {
@@ -215,26 +217,34 @@ struct SourceSetupView: View {
     setPhotoFolderURL(url)
   }
 
-  private func setGPXFolderURL(_ url: URL) {
-    var isDirectory: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-      isDirectory.boolValue
-    else {
-      workspace.errorMessage = "请选择包含 GPX 文件的目录。"
-      return
+  @discardableResult
+  private func setGPXSourceURL(_ url: URL) -> Bool {
+    do {
+      guard !(try LiveGeoWorkflowService.gpxFiles(at: url)).isEmpty else {
+        workspace.errorMessage = "所选来源中没有 GPX 文件。"
+        return false
+      }
+      workspace.configuration.gpxSourceURL = url.standardizedFileURL
+      workspace.errorMessage = nil
+      return true
+    } catch {
+      workspace.errorMessage = error.localizedDescription
+      return false
     }
-    workspace.configuration.gpxDirectoryURL = url
   }
 
-  private func setPhotoFolderURL(_ url: URL) {
+  @discardableResult
+  private func setPhotoFolderURL(_ url: URL) -> Bool {
     var isDirectory: ObjCBool = false
     guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
       isDirectory.boolValue
     else {
       workspace.errorMessage = "请选择包含 RAW 文件的文件夹。"
-      return
+      return false
     }
-    workspace.configuration.photoDirectoryURL = url
+    workspace.configuration.photoDirectoryURL = url.standardizedFileURL
+    workspace.errorMessage = nil
+    return true
   }
 }
 
@@ -267,7 +277,7 @@ private struct SourcePickerCard: View {
   let url: URL?
   let actionTitle: String
   let action: () -> Void
-  let onDropURL: (URL) -> Void
+  let onDropURL: (URL) -> Bool
   @State private var isDropTarget = false
 
   var body: some View {
@@ -330,8 +340,7 @@ private struct SourcePickerCard: View {
     }
     .dropDestination(for: URL.self) { items, _ in
       guard let first = items.first else { return false }
-      onDropURL(first)
-      return true
+      return onDropURL(first)
     } isTargeted: { isTargeted in
       isDropTarget = isTargeted
     }

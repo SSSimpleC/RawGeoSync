@@ -83,7 +83,7 @@ final class WorkspaceViewModel: ObservableObject {
 
   func analyze() {
     guard configuration.isReady else {
-      errorMessage = "请先选择 GPX 目录和照片目录。"
+      errorMessage = "请先选择 GPX 文件或目录，以及照片目录。"
       return
     }
 

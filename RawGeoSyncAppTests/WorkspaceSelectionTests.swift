@@ -4,6 +4,54 @@ import XCTest
 
 @MainActor
 final class WorkspaceSelectionTests: XCTestCase {
+  func testSingleGPXFileIsAcceptedAsSource() throws {
+    let fixture = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: fixture) }
+    let gpxFile = fixture.appendingPathComponent("single-track.GPX")
+    try Data("<gpx version=\"1.1\"></gpx>".utf8).write(to: gpxFile)
+
+    XCTAssertEqual(
+      try LiveGeoWorkflowService.gpxFiles(at: gpxFile),
+      [gpxFile.standardizedFileURL]
+    )
+
+    var configuration = SourceConfiguration()
+    configuration.gpxSourceURL = gpxFile
+    configuration.photoDirectoryURL = fixture
+    XCTAssertTrue(configuration.isReady)
+  }
+
+  func testGPXDirectoryRecursivelyCollectsOnlyGPXFiles() throws {
+    let fixture = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: fixture) }
+    let nested = fixture.appendingPathComponent("nested", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: nested,
+      withIntermediateDirectories: true
+    )
+    let first = fixture.appendingPathComponent("2025.gpx")
+    let second = nested.appendingPathComponent("2026.GPX")
+    try Data("<gpx/>".utf8).write(to: first)
+    try Data("<gpx/>".utf8).write(to: second)
+    try Data("not a track".utf8).write(to: fixture.appendingPathComponent("notes.txt"))
+
+    XCTAssertEqual(
+      try LiveGeoWorkflowService.gpxFiles(at: fixture),
+      [first.standardizedFileURL, second.standardizedFileURL]
+    )
+  }
+
+  func testNonGPXFileIsRejectedAsSource() throws {
+    let fixture = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: fixture) }
+    let textFile = fixture.appendingPathComponent("track.txt")
+    try Data("not a track".utf8).write(to: textFile)
+
+    XCTAssertThrowsError(try LiveGeoWorkflowService.gpxFiles(at: textFile)) { error in
+      XCTAssertEqual(error.localizedDescription, "请选择扩展名为 .gpx 的轨迹文件。")
+    }
+  }
+
   func testFilteredSelectAllTogglesPhotoCheckmarks() {
     let workspace = WorkspaceViewModel(service: DemoGeoWorkflowService())
     workspace.matches = [
@@ -82,5 +130,15 @@ final class WorkspaceSelectionTests: XCTestCase {
       hasExistingGPS: false,
       hasProtectedExternalXMP: false
     )
+  }
+
+  private func makeTemporaryDirectory() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("RawGeoSync-GPXSourceTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: false
+    )
+    return directory
   }
 }

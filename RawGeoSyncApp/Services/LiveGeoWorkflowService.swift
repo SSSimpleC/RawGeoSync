@@ -24,10 +24,10 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     AsyncThrowingStream { continuation in
       let task = Task.detached(priority: .userInitiated) {
         do {
-          guard let gpxDirectoryURL = configuration.gpxDirectoryURL,
+          guard let gpxSourceURL = configuration.gpxSourceURL,
             let photoDirectoryURL = configuration.photoDirectoryURL
           else {
-            throw WorkflowFailure(message: "请先选择 GPX 目录和照片目录。")
+            throw WorkflowFailure(message: "请先选择 GPX 文件或目录，以及照片目录。")
           }
 
           continuation.yield(.progress(fraction: 0.05, message: "检查内置 ExifTool…"))
@@ -74,9 +74,9 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
 
           continuation.yield(.progress(fraction: 0.44, message: "流式读取并独立规范化 GPX 来源…"))
           try Task.checkCancellation()
-          let gpxFiles = try Self.gpxFiles(in: gpxDirectoryURL)
+          let gpxFiles = try Self.gpxFiles(at: gpxSourceURL)
           guard !gpxFiles.isEmpty else {
-            throw WorkflowFailure(message: "所选目录中没有 GPX 文件。")
+            throw WorkflowFailure(message: "所选来源中没有 GPX 文件。")
           }
           let trackBuild = try Self.makeTrajectorySources(gpxFiles: gpxFiles)
 
@@ -399,10 +399,33 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     }
   }
 
-  private static func gpxFiles(in directory: URL) throws -> [URL] {
+  static func gpxFiles(at source: URL) throws -> [URL] {
+    let standardizedSource = source.standardizedFileURL
+    let sourceValues: URLResourceValues
+    do {
+      sourceValues = try standardizedSource.resourceValues(
+        forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
+      )
+    } catch {
+      throw WorkflowFailure(message: "无法读取所选 GPX 文件或目录。")
+    }
+
+    if sourceValues.isRegularFile == true {
+      guard sourceValues.isSymbolicLink != true,
+        standardizedSource.pathExtension.caseInsensitiveCompare("gpx") == .orderedSame
+      else {
+        throw WorkflowFailure(message: "请选择扩展名为 .gpx 的轨迹文件。")
+      }
+      return [standardizedSource]
+    }
+
+    guard sourceValues.isDirectory == true else {
+      throw WorkflowFailure(message: "请选择 GPX 文件或包含 GPX 的目录。")
+    }
+
     guard
       let enumerator = FileManager.default.enumerator(
-        at: directory,
+        at: standardizedSource,
         includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isPackageKey],
         options: [.skipsHiddenFiles, .skipsPackageDescendants]
       )
