@@ -42,14 +42,32 @@
 
 Mac App Store 不是当前 MVP 目标。若未来进入 Mac App Store，需要重新设计 App Sandbox、用户选定目录权限、ExifTool helper 和崩溃恢复流程。
 
+## v0.3 Catalog Bridge 门禁
+
+1. 确认 [ADR 0003](Decisions/0003-lightroom-catalog-bridge.md) 与 JSONL schema、App 默认输出和插件实现一致。
+2. Swift 与 Lua 共享 golden fixtures 全部通过，仓库策略已扫描 `.lua`，真实生成清单保持 Git ignored。
+3. 在独立 Lightroom Catalog 上完成 20 张完整功能样本和 100 张五批次真机样本；完成 1000、5000、10000 条合成复杂度验收。不得使用正式 Catalog 或照片原件。
+4. Auto XMP 关闭时证明 RAW 目录只增加一份清单，RAW 内容和 mtime 不变；开启时验证警告与 Lightroom 实际行为一致。
+5. 验证原生 Undo、跨重启插件撤销、取消自动回滚、后续编辑冲突保护和重复导入 no-op。
+6. 确认插件 ZIP 与 App 内置插件的版本、schema major/minor 和 SHA-256 一致。
+7. 发布物同时包含 App ZIP、`RawGeoSync-Lightroom-Bridge-<version>.zip`、校验文件和安装/日常使用说明。
+
+本机构建上述三份发布物：
+
+```sh
+./Scripts/package-release.sh 0.3.0
+```
+
+输出位于被 Git 忽略的 `.local/release/v0.3.0/`。脚本会核对 App 版本、内置插件与独立插件逐文件一致，再生成 `SHA256SUMS.txt`。
+
 ## 发布前数据安全验收
 
 - 分析阶段不产生照片目录写入；
-- 写入只创建或更新同名 XMP，NEF SHA-256 不变；
-- 已有不同 GPS 默认跳过；
+- 默认桥接只创建或原子替换单一位置清单；兼容模式才创建或更新同名 XMP，RAW SHA-256 不变；
+- Catalog 中已有不同 GPS 会在预览明确计数并按本次清单覆盖；插件撤销收据必须先成功持久化；
 - 重复运行识别为 already-applied 且不改变 XMP mtime；
 - 取消、单项失败和崩溃不会留下半写 XMP；
-- 撤销遇到后续 Lightroom 修改时必须拒绝覆盖；
+- XMP 和 Catalog 撤销遇到后续 Lightroom 修改时必须拒绝覆盖；
 - 强候选冲突、传播循环和跨活动区候选不能自动写入；
 - 源无 hacc 时界面和报告都显示 unknown，不生成伪精度；
 - 全量 dry-run 的输入目录前后 SHA-256 清单完全一致。

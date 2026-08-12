@@ -22,12 +22,20 @@ final class WorkspaceViewModel: ObservableObject {
   @Published var writePreview: WritePreview?
   @Published var errorMessage: String?
   @Published var recoveryMessage: String?
+  @Published var pluginInstallationStatus: LightroomPluginInstallationStatus = .checking
+  @Published var pluginInstallationMessage: String?
 
   let service: any GeoWorkflowServicing
+  let pluginInstaller: LightroomPluginInstaller
   private var operationTask: Task<Void, Never>?
 
-  init(service: any GeoWorkflowServicing) {
+  init(
+    service: any GeoWorkflowServicing,
+    pluginInstaller: LightroomPluginInstaller = LightroomPluginInstaller()
+  ) {
     self.service = service
+    self.pluginInstaller = pluginInstaller
+    pluginInstallationStatus = pluginInstaller.status()
     Task { [weak self] in
       guard let self else { return }
       do {
@@ -58,7 +66,7 @@ final class WorkspaceViewModel: ObservableObject {
   var writableCount: Int {
     matches.count(where: {
       $0.isSelectedForWrite && $0.coordinate != nil && $0.isWritableTarget
-        && !$0.hasProtectedExternalXMP
+        && (configuration.outputMode == .lightroomCatalogBridge || !$0.hasProtectedExternalXMP)
     })
   }
 
@@ -83,7 +91,7 @@ final class WorkspaceViewModel: ObservableObject {
 
   func analyze() {
     guard configuration.isReady else {
-      errorMessage = "请先选择 GPX 目录和照片目录。"
+      errorMessage = "请先选择 GPX 文件或目录，以及照片目录。"
       return
     }
 
@@ -127,7 +135,9 @@ final class WorkspaceViewModel: ObservableObject {
     operationTask?.cancel()
     errorMessage = nil
     isPreparingWrite = true
-    progressMessage = "检查文件摘要与现有 XMP…"
+    progressMessage =
+      configuration.outputMode == .lightroomCatalogBridge
+      ? "检查照片身份与单清单目标…" : "检查文件摘要与现有 XMP…"
     operationTask = Task { [weak self] in
       guard let self else { return }
       do {
@@ -135,12 +145,14 @@ final class WorkspaceViewModel: ObservableObject {
           matches: matches,
           configuration: configuration
         )
-        for index in matches.indices
-        where preview.conflictFileURLs.contains(matches[index].fileURL.standardizedFileURL) {
-          matches[index].hasExistingGPS = true
-          matches[index].isSelectedForWrite = false
-          matches[index].confidence = .review
-          matches[index].note = "检测到已有不同 GPS，已取消选择；重新勾选表示明确授权替换"
+        if configuration.outputMode == .xmpSidecar {
+          for index in matches.indices
+          where preview.conflictFileURLs.contains(matches[index].fileURL.standardizedFileURL) {
+            matches[index].hasExistingGPS = true
+            matches[index].isSelectedForWrite = false
+            matches[index].confidence = .review
+            matches[index].note = "检测到已有不同 GPS，已取消选择；重新勾选表示明确授权替换"
+          }
         }
         writePreview = preview
       } catch is CancellationError {
@@ -164,7 +176,9 @@ final class WorkspaceViewModel: ObservableObject {
     errorMessage = nil
     isApplying = true
     progressFraction = 0
-    progressMessage = "准备生成 XMP…"
+    progressMessage =
+      configuration.outputMode == .lightroomCatalogBridge
+      ? "准备生成 Lightroom Classic 位置清单…" : "准备生成 XMP…"
 
     operationTask = Task { [weak self] in
       guard let self else { return }
@@ -192,7 +206,7 @@ final class WorkspaceViewModel: ObservableObject {
   }
 
   func undo() {
-    guard var currentReport = report, !currentReport.isUndone else { return }
+    guard var currentReport = report, currentReport.canUndo else { return }
     operationTask?.cancel()
     isUndoing = true
     errorMessage = nil
@@ -321,6 +335,22 @@ final class WorkspaceViewModel: ObservableObject {
     operationTask?.cancel()
   }
 
+  func refreshPluginInstallationStatus() {
+    pluginInstallationStatus = pluginInstaller.status()
+  }
+
+  func installOrUpdateLightroomPlugin() {
+    do {
+      let installedURL = try pluginInstaller.installOrUpdate()
+      pluginInstallationStatus = .installed
+      pluginInstallationMessage =
+        "插件已安装到 \(installedURL.path(percentEncoded: false))。如果 Lightroom Classic 正在运行，请重新启动后再导入位置清单。"
+    } catch {
+      errorMessage = error.localizedDescription
+      pluginInstallationStatus = pluginInstaller.status()
+    }
+  }
+
   func returnToSources() {
     cancelCurrentOperation()
     stage = .sources
@@ -338,6 +368,7 @@ final class WorkspaceViewModel: ObservableObject {
     report = nil
     writePreview = nil
     errorMessage = nil
+    pluginInstallationMessage = nil
     progressFraction = 0
     progressMessage = ""
     isAnalyzing = false

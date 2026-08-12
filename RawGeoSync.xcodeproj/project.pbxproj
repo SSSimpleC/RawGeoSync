@@ -28,6 +28,8 @@
 		A10000000000000000000119 /* RawGeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000601 /* RawGeoCore */; };
 		A10000000000000000000120 /* MetadataInfrastructure in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000602 /* MetadataInfrastructure */; };
 		A10000000000000000000121 /* WorkspaceSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000217 /* WorkspaceSelectionTests.swift */; };
+		A10000000000000000000122 /* LightroomPluginInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000219 /* LightroomPluginInstaller.swift */; };
+		A10000000000000000000123 /* RawGeoSync.lrplugin in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000220 /* RawGeoSync.lrplugin */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +60,8 @@
 		A10000000000000000000216 /* RawGeoSyncSmoke */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RawGeoSyncSmoke; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000217 /* WorkspaceSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSelectionTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000218 /* RawGeoSyncAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawGeoSyncAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000219 /* LightroomPluginInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightroomPluginInstaller.swift; sourceTree = "<group>"; };
+		A10000000000000000000220 /* RawGeoSync.lrplugin */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RawGeoSync.lrplugin; path = LightroomPlugin/RawGeoSync.lrplugin; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +100,7 @@
 				A10000000000000000000402 /* RawGeoSyncApp */,
 				A10000000000000000000410 /* Tools */,
 				A10000000000000000000412 /* RawGeoSyncAppTests */,
+				A10000000000000000000220 /* RawGeoSync.lrplugin */,
 				A10000000000000000000214 /* ExifTool */,
 				A10000000000000000000407 /* Frameworks */,
 				A10000000000000000000408 /* Products */,
@@ -127,6 +132,7 @@
 			children = (
 				A10000000000000000000203 /* GeoWorkflowService.swift */,
 				A10000000000000000000213 /* LiveGeoWorkflowService.swift */,
+				A10000000000000000000219 /* LightroomPluginInstaller.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -312,6 +318,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000114 /* ExifTool in Resources */,
+				A10000000000000000000123 /* RawGeoSync.lrplugin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,6 +350,7 @@
 				A10000000000000000000108 /* AnalysisWorkspaceView.swift in Sources */,
 				A10000000000000000000109 /* ApplyResultView.swift in Sources */,
 				A10000000000000000000113 /* LiveGeoWorkflowService.swift in Sources */,
+				A10000000000000000000122 /* LightroomPluginInstaller.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,7 +492,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -495,7 +503,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
@@ -510,7 +518,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -521,7 +529,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sssimplec.RawGeoSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;

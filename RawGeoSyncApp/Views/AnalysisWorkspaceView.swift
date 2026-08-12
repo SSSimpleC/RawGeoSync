@@ -64,7 +64,7 @@ struct AnalysisWorkspaceView: View {
     .overlay {
       if workspace.isPreparingWrite || workspace.isApplying {
         ProgressOverlay(
-          title: workspace.isPreparingWrite ? "正在生成只读写入计划" : "正在创建并复读验证 XMP",
+          title: progressTitle,
           message: workspace.progressMessage,
           fraction: workspace.progressFraction,
           cancel: workspace.cancelCurrentOperation
@@ -73,11 +73,11 @@ struct AnalysisWorkspaceView: View {
     }
     .alert(item: $workspace.writePreview) { preview in
       Alert(
-        title: Text("确认 XMP 写入计划"),
+        title: Text(preview.title),
         message: Text(preview.message),
         primaryButton: .cancel(Text("返回复核")),
         secondaryButton: .default(
-          Text(preview.writableCount > 0 ? "确认写入" : "没有可写项目"),
+          Text(preview.writableCount > 0 ? preview.confirmTitle : "没有可输出项目"),
           action: {
             if preview.writableCount > 0 {
               workspace.confirmApply()
@@ -197,7 +197,7 @@ struct AnalysisWorkspaceView: View {
           .font(.caption)
           .foregroundStyle(.secondary)
         Spacer()
-        Text("已勾选 \(workspace.checkedPhotoCount) 张 · 可写 \(workspace.writableCount) 张")
+        Text("已勾选 \(workspace.checkedPhotoCount) 张 · 可输出 \(workspace.writableCount) 张")
           .font(.caption.weight(.medium))
           .foregroundStyle(.green)
         if !workspace.selectedMatches.isEmpty {
@@ -212,7 +212,7 @@ struct AnalysisWorkspaceView: View {
       Divider()
 
       Table(workspace.filteredMatches, selection: $workspace.selectedMatches) {
-        TableColumn("写入") { match in
+        TableColumn("输出") { match in
           Toggle(
             "写入 \(match.fileName)",
             isOn: Binding(
@@ -222,7 +222,7 @@ struct AnalysisWorkspaceView: View {
           )
           .labelsHidden()
           .disabled(!match.isWritableTarget)
-          .help(match.coordinate == nil ? "已勾选；获得坐标前会安全跳过" : "勾选后纳入写入计划")
+          .help(match.coordinate == nil ? "已勾选；获得坐标前会安全跳过" : "勾选后纳入输出计划")
         }
         .width(42)
 
@@ -303,8 +303,11 @@ struct AnalysisWorkspaceView: View {
       Button {
         workspace.prepareApply()
       } label: {
-        Label("预检并应用 \(workspace.writableCount) 张", systemImage: "checkmark.shield")
-          .frame(minWidth: 150)
+        Label(
+          "预检并\(workspace.configuration.outputMode.actionTitle) \(workspace.writableCount) 张",
+          systemImage: "checkmark.shield"
+        )
+        .frame(minWidth: 150)
       }
       .buttonStyle(.borderedProminent)
       .controlSize(.large)
@@ -322,6 +325,14 @@ struct AnalysisWorkspaceView: View {
     formatter.timeZone = workspace.configuration.timeZone
     formatter.dateFormat = "MM-dd HH:mm:ss"
     return formatter.string(from: date)
+  }
+
+  private var progressTitle: String {
+    if workspace.isPreparingWrite { return "正在生成只读输出计划" }
+    return switch workspace.configuration.outputMode {
+    case .lightroomCatalogBridge: "正在生成 Lightroom Classic 单清单"
+    case .xmpSidecar: "正在创建并复读验证 XMP"
+    }
   }
 }
 

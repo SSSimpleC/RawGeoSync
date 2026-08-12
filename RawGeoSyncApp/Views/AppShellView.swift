@@ -52,6 +52,21 @@ struct AppShellView: View {
         Text(workspace.recoveryMessage ?? "")
       }
     )
+    .alert(
+      "Lightroom Classic 插件",
+      isPresented: Binding(
+        get: { workspace.pluginInstallationMessage != nil },
+        set: { if !$0 { workspace.pluginInstallationMessage = nil } }
+      ),
+      actions: {
+        Button("好", role: .cancel) {
+          workspace.pluginInstallationMessage = nil
+        }
+      },
+      message: {
+        Text(workspace.pluginInstallationMessage ?? "")
+      }
+    )
   }
 }
 
@@ -67,7 +82,7 @@ private struct WorkflowHeader: View {
         VStack(alignment: .leading, spacing: 1) {
           Text("RawGeoSync")
             .font(.headline)
-          Text("RAW 地理信息预检与写入")
+          Text("RAW 地理信息预检与交付")
             .font(.caption)
             .foregroundStyle(.secondary)
         }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ApplyResultView: View {
@@ -16,15 +17,17 @@ struct ApplyResultView: View {
 
         HStack(spacing: 12) {
           MetricCard(
-            title: "已应用",
+            title: report?.outputMode == .lightroomCatalogBridge ? "清单记录" : "已应用",
             value: "\(report?.appliedCount ?? 0)",
             systemImage: "square.and.arrow.down",
             tint: .cyan
           )
           MetricCard(
-            title: "复读验证通过",
-            value: "\(report?.verifiedCount ?? 0)",
-            systemImage: "checkmark.seal.fill",
+            title: report?.outputMode == .lightroomCatalogBridge ? "单清单文件" : "复读验证通过",
+            value: report?.outputMode == .lightroomCatalogBridge
+              ? (report?.artifactURL == nil ? "0" : "1") : "\(report?.verifiedCount ?? 0)",
+            systemImage: report?.outputMode == .lightroomCatalogBridge
+              ? "doc.text.fill" : "checkmark.seal.fill",
             tint: .green
           )
           MetricCard(
@@ -41,7 +44,7 @@ struct ApplyResultView: View {
           )
         }
 
-        GroupBox("验证详情") {
+        GroupBox(report?.outputMode == .lightroomCatalogBridge ? "清单详情" : "验证详情") {
           VStack(spacing: 0) {
             ForEach(workspace.matches) { match in
               HStack(spacing: 12) {
@@ -69,9 +72,9 @@ struct ApplyResultView: View {
 
         HStack {
           VStack(alignment: .leading, spacing: 3) {
-            Text(report?.isUndone == true ? "本次应用已撤销" : "下一步：导入 Lightroom Classic")
+            Text(nextStepTitle)
               .font(.headline)
-            Text(report?.outputDirectoryURL?.path(percentEncoded: false) ?? "未记录输出目录")
+            Text(outputPath)
               .font(.caption)
               .foregroundStyle(.secondary)
               .lineLimit(1)
@@ -83,15 +86,40 @@ struct ApplyResultView: View {
             workspace.stage = .analysis
           }
 
-          Button {
-            workspace.undo()
-          } label: {
-            Label(
-              workspace.isUndoing ? "正在撤销…" : "撤销本次应用",
-              systemImage: "arrow.uturn.backward.circle"
-            )
+          if report?.outputMode == .lightroomCatalogBridge {
+            if let actionTitle = workspace.pluginInstallationStatus.actionTitle {
+              Button(actionTitle) {
+                workspace.installOrUpdateLightroomPlugin()
+              }
+            }
+            Button {
+              if let artifactURL = report?.artifactURL {
+                NSWorkspace.shared.activateFileViewerSelecting([artifactURL])
+              }
+            } label: {
+              Label("在访达中显示清单", systemImage: "folder")
+            }
+            .disabled(report?.artifactURL == nil)
+            Button("打开 Lightroom Classic") {
+              if let appURL = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: "com.adobe.LightroomClassicCC7"
+              ) {
+                NSWorkspace.shared.open(appURL)
+              } else {
+                workspace.errorMessage = "未找到 Adobe Lightroom Classic。"
+              }
+            }
+          } else {
+            Button {
+              workspace.undo()
+            } label: {
+              Label(
+                workspace.isUndoing ? "正在撤销…" : "撤销本次应用",
+                systemImage: "arrow.uturn.backward.circle"
+              )
+            }
+            .disabled(report?.canUndo != true || workspace.isBusy)
           }
-          .disabled(report?.isUndone != false || workspace.isBusy)
 
           Button {
             workspace.reset()
@@ -115,15 +143,14 @@ struct ApplyResultView: View {
           .fill((report?.isUndone == true ? Color.orange : Color.green).opacity(0.13))
           .frame(width: 76, height: 76)
         Image(
-          systemName: report?.isUndone == true
-            ? "arrow.uturn.backward.circle.fill" : "checkmark.seal.fill"
+          systemName: statusIcon
         )
         .font(.system(size: 42))
         .foregroundStyle(report?.isUndone == true ? .orange : .green)
       }
-      Text(report?.isUndone == true ? "已安全撤销" : "地理信息已应用并验证")
+      Text(statusTitle)
         .font(.largeTitle.weight(.semibold))
-      Text(report?.isUndone == true ? "已恢复应用前的 sidecar 状态。" : "原始 RAW 未被修改；所有成功项均已复读确认。")
+      Text(statusDetail)
         .font(.title3)
         .foregroundStyle(.secondary)
     }
@@ -131,12 +158,48 @@ struct ApplyResultView: View {
 
   private func color(for state: VerificationState) -> Color {
     switch state {
+    case .exported: .cyan
     case .verified: .green
     case .skipped: .orange
     case .failed: .red
     case .undone: .orange
     case .pending: .secondary
     }
+  }
+
+  private var nextStepTitle: String {
+    if report?.isUndone == true { return "本次应用已撤销" }
+    if report?.outputMode == .lightroomCatalogBridge {
+      return "下一步：在 Lightroom Classic 中运行 RawGeoSync 插件"
+    }
+    return "下一步：导入 Lightroom Classic"
+  }
+
+  private var statusTitle: String {
+    if report?.isUndone == true { return "已安全撤销" }
+    return report?.outputMode == .lightroomCatalogBridge
+      ? "Lightroom Classic 位置清单已生成" : "地理信息已应用并验证"
+  }
+
+  private var statusIcon: String {
+    if report?.isUndone == true { return "arrow.uturn.backward.circle.fill" }
+    return report?.outputMode == .lightroomCatalogBridge
+      ? "doc.badge.checkmark" : "checkmark.seal.fill"
+  }
+
+  private var outputPath: String {
+    if let artifactURL = report?.artifactURL {
+      return artifactURL.path(percentEncoded: false)
+    }
+    return report?.outputDirectoryURL?.path(percentEncoded: false) ?? "未记录输出位置"
+  }
+
+  private var statusDetail: String {
+    if report?.isUndone == true { return "已恢复应用前的 sidecar 状态。" }
+    if report?.outputMode == .lightroomCatalogBridge {
+      return "原始 RAW 未被修改；清单仍需由插件写入当前 Lightroom 目录，应用后可整批撤销。"
+    }
+    return "原始 RAW 未被修改；所有成功项均已复读确认。"
   }
 }
 
@@ -151,6 +214,7 @@ private struct VerificationIcon: View {
 
   private var icon: String {
     switch state {
+    case .exported: "doc.text.fill"
     case .verified: "checkmark.circle.fill"
     case .skipped: "forward.end.circle.fill"
     case .failed: "xmark.circle.fill"
@@ -161,6 +225,7 @@ private struct VerificationIcon: View {
 
   private var color: Color {
     switch state {
+    case .exported: .cyan
     case .verified: .green
     case .skipped: .orange
     case .failed: .red

@@ -31,6 +31,12 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Install Lightroom-compatible Lua test runtime
+        run: |
+          brew install micromamba
+          micromamba create -y -p "$RUNNER_TEMP/rawgeosync-lua51" -c conda-forge lua=5.1
+          echo "RAWGEOSYNC_LUA=$RUNNER_TEMP/rawgeosync-lua51/bin/lua" >> "$GITHUB_ENV"
+
       - name: Full quality gate
         run: ./Scripts/ci.sh
 

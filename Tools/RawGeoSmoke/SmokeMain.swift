@@ -26,10 +26,14 @@ enum RawGeoSmokeMain {
   private static func capabilities() -> [String: Any] {
     [
       "schemaVersion": 1,
-      "features": ["fullCorpusDryRun": true],
+      "features": [
+        "fullCorpusDryRun": true,
+        "defaultOutputMode": OutputMode.lightroomCatalogBridge.rawValue,
+        "outputModes": OutputMode.allCases.map(\.rawValue),
+      ],
       "guarantees": [
         "readOnlySourceDirectories": true,
-        "writeTargets": "proprietary-raw-xmp-sidecar-only",
+        "writeTargets": "single-catalog-bridge-manifest-or-proprietary-raw-xmp-sidecar",
       ],
       "matchingRuleVersion": "2.0",
     ]
@@ -53,7 +57,7 @@ enum RawGeoSmokeMain {
     }
 
     let configuration = SourceConfiguration(
-      gpxDirectoryURL: gpxDirectory,
+      gpxSourceURL: gpxDirectory,
       photoDirectoryURL: photoDirectory,
       matchingStrategy: .coverage
     )
