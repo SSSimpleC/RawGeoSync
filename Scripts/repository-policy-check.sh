@@ -22,7 +22,7 @@ while IFS= read -r repository_file; do
   REPOSITORY_FILES+=("$repository_file")
   case "$repository_file" in
     Vendor/*) ;;
-    *.md | *.sh | *.swift | *.yml | *.yaml | *.json | *.jsonl | *.log | *.txt | *.plist \
+    *.md | *.sh | *.swift | *.lua | *.yml | *.yaml | *.json | *.jsonl | *.log | *.txt | *.plist \
       | *.xml | *.pbxproj | *.xcscheme | *.xcconfig)
       SCAN_FILES+=("$repository_file")
       ;;
@@ -58,7 +58,7 @@ print "检查高精度坐标"
 SENSITIVE_TEXT_FILES=()
 for scan_file in "${SCAN_FILES[@]}"; do
   case "$scan_file" in
-    *.md | *.sh | *.yml | *.yaml | *.json | *.jsonl | *.log | *.txt | *.plist | *.xml \
+    *.md | *.sh | *.lua | *.yml | *.yaml | *.json | *.jsonl | *.log | *.txt | *.plist | *.xml \
       | *.pbxproj | *.xcscheme | *.xcconfig)
       SENSITIVE_TEXT_FILES+=("$scan_file")
       ;;

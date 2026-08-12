@@ -1,13 +1,13 @@
 # 参与贡献
 
-感谢你关注 RawGeoSync。项目目前以 macOS 本机离线处理和个人照片工作流为目标，外部贡献应先确认不会改变 RAW 只读、XMP sidecar 输出和隐私边界。
+感谢你关注 RawGeoSync。项目目前以 macOS 本机离线处理和个人照片工作流为目标，外部贡献应先确认不会改变 RAW 只读、Lightroom Catalog Bridge、XMP 兼容输出和隐私边界。
 
 ## 开发环境
 
 - macOS 15 或更高版本
 - Xcode 26.3 或兼容的 Swift 6 工具链
 - 系统 Perl 仅用于运行随项目锁定的 ExifTool 13.59
-- Swift 依赖只使用本地 Swift Package，不提交 Homebrew 或 Conda 环境
+- Swift 依赖只使用本地 Swift Package；Lua 测试环境放在被忽略的项目 `.local/` conda 环境，不修改 base
 
 首次开发前，确认 `xcode-select -p` 指向完整 Xcode，而不是只安装 Command Line Tools。
 
@@ -36,8 +36,9 @@ RawGeoSync 不上传照片、轨迹或坐标。新增网络请求、遥测、反
 ## 元数据边界
 
 - RAW 文件永远不能作为写入目标。
-- GPS 写入只能通过同名 XMP sidecar 完成。
-- 不要修改 `DateTimeOriginal`，也不要未经用户确认覆盖已有 GPS。
+- 默认 GPS 写入通过版本化清单和 Lightroom 插件完成；兼容模式才写同名 XMP sidecar。
+- 不要修改 `DateTimeOriginal`。Catalog Bridge 按用户已锁定策略以本次清单覆盖不同 GPS，但必须提供预览和可恢复的整批撤销。
+- 禁止 basename 模糊匹配、直接访问 `.lrcat` SQLite、在插件中启动网络/shell/ExifTool/Python，或把绝对照片路径写入清单。
 - 更新 ExifTool 时必须同步版本清单、归档 SHA-256、上游许可证说明和真实契约测试。
 
 ## Pull Request 检查清单

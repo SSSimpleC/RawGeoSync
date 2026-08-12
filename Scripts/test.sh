@@ -16,6 +16,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 "$PROJECT_ROOT/Scripts/verify-vendor.sh"
+"$PROJECT_ROOT/Scripts/test-lua.sh"
 swift test \
   --package-path "$PROJECT_ROOT/RawGeoCore" \
   --scratch-path "$DERIVED_DATA/SwiftPM/RawGeoCore"
@@ -30,3 +31,15 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA" \
   CODE_SIGNING_ALLOWED=NO \
   test
+
+xcodebuild \
+  -project "$PROJECT_ROOT/RawGeoSync.xcodeproj" \
+  -target RawGeoSyncSmoke \
+  -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=YES \
+  SYMROOT="$DERIVED_DATA/Smoke/Products" \
+  OBJROOT="$DERIVED_DATA/Smoke/Intermediates" \
+  CODE_SIGNING_ALLOWED=NO \
+  build

@@ -62,7 +62,11 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
       createCount: selected,
       updateCount: 0,
       alreadyAppliedCount: 0,
-      conflictCount: 0
+      conflictCount: 0,
+      outputMode: configuration.outputMode,
+      artifactURL: configuration.outputMode == .lightroomCatalogBridge
+        ? configuration.photoDirectoryURL?.appendingPathComponent("RawGeoSync.locations.jsonl")
+        : nil
     )
   }
 
@@ -83,11 +87,13 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
             continuation.yield(
               .progress(
                 fraction: fraction,
-                message: "验证 \(match.fileName) 的 XMP…"
+                message: configuration.outputMode == .lightroomCatalogBridge
+                  ? "整理 \(match.fileName) 的清单记录…" : "验证 \(match.fileName) 的 XMP…"
               )
             )
             if let targetIndex = updated.firstIndex(where: { $0.id == match.id }) {
-              updated[targetIndex].verification = .verified
+              updated[targetIndex].verification =
+                configuration.outputMode == .lightroomCatalogBridge ? .exported : .verified
             }
             try await Task.sleep(for: .milliseconds(22))
           }
@@ -105,7 +111,12 @@ struct DemoGeoWorkflowService: GeoWorkflowServicing {
             verifiedCount: eligible.count,
             skippedCount: matches.count - eligible.count,
             failedCount: 0,
-            outputDirectoryURL: configuration.photoDirectoryURL
+            outputDirectoryURL: configuration.photoDirectoryURL,
+            outputMode: configuration.outputMode,
+            artifactURL: configuration.outputMode == .lightroomCatalogBridge
+              ? configuration.photoDirectoryURL?.appendingPathComponent(
+                "RawGeoSync.locations.jsonl"
+              ) : nil
           )
           continuation.yield(.completed(matches: updated, report: report))
           continuation.finish()

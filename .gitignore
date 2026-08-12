@@ -8,6 +8,11 @@ xcuserdata/
 *.log
 *.env
 
+# Generated location bridge manifests contain private paths and coordinates.
+RawGeoSync.locations.jsonl
+!**/Tests/Fixtures/RawGeoSync.locations.jsonl
+!**/Tests/Fixtures/**/RawGeoSync.locations.jsonl
+
 # User photographs and tracks never belong in source control.
 *.nef
 *.NEF
@@ -33,4 +38,3 @@ xcuserdata/
 # Synthetic fixtures are explicitly allowed.
 !**/Tests/Fixtures/*.gpx
 !**/Tests/Fixtures/**/*.gpx
-

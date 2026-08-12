@@ -69,7 +69,7 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
           }
           let writableAssets = assetBuild.assets.filter { $0.rawFile != nil }
           guard !writableAssets.isEmpty else {
-            throw WorkflowFailure(message: "没有发现可生成 XMP sidecar 的专有 RAW（NEF、ARW 等）。")
+            throw WorkflowFailure(message: "没有发现可输出地理信息的专有 RAW（NEF、ARW 等）。")
           }
 
           continuation.yield(.progress(fraction: 0.44, message: "流式读取并独立规范化 GPX 来源…"))
@@ -131,6 +131,7 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
               prepared: prepared,
               file: rawFile,
               strategy: configuration.matchingStrategy,
+              outputMode: configuration.outputMode,
               writeAltitude: configuration.writeAltitude,
               trackSourceDigests: trackBuild.sourceDigests
             )
@@ -170,6 +171,27 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
   func previewWrite(matches: [PhotoMatch], configuration: SourceConfiguration) async throws
     -> WritePreview
   {
+    if configuration.outputMode == .lightroomCatalogBridge {
+      let assets = try Self.makeCatalogBridgeAssets(matches: matches, configuration: configuration)
+      let artifactURL = try Self.catalogBridgeArtifactURL(configuration: configuration)
+      let alreadyAppliedCount: Int
+      let targetExists = FileManager.default.fileExists(atPath: artifactURL.path)
+      if targetExists {
+        let existing = try CatalogBridgeManifestStore().read(from: artifactURL)
+        alreadyAppliedCount = Self.hasSameCatalogBridgeAssets(existing, assets) ? assets.count : 0
+      } else {
+        alreadyAppliedCount = 0
+      }
+      return WritePreview(
+        selectedCount: assets.count,
+        createCount: targetExists ? 0 : assets.count,
+        updateCount: targetExists && alreadyAppliedCount == 0 ? assets.count : 0,
+        alreadyAppliedCount: alreadyAppliedCount,
+        conflictCount: 0,
+        outputMode: .lightroomCatalogBridge,
+        artifactURL: artifactURL
+      )
+    }
     let requests = try Self.makeWriteRequests(matches: matches, configuration: configuration)
     guard !requests.isEmpty else {
       return WritePreview(
@@ -201,7 +223,8 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
       updateCount: updateCount,
       alreadyAppliedCount: alreadyAppliedCount,
       conflictCount: conflictURLs.count,
-      conflictFileURLs: conflictURLs
+      conflictFileURLs: conflictURLs,
+      outputMode: .xmpSidecar
     )
   }
 
@@ -213,6 +236,61 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
       let task = Task.detached(priority: .userInitiated) {
         let startedAt = Date()
         do {
+          if configuration.outputMode == .lightroomCatalogBridge {
+            let assets = try Self.makeCatalogBridgeAssets(
+              matches: matches,
+              configuration: configuration
+            )
+            guard !assets.isEmpty else {
+              throw WorkflowFailure(message: "没有已确认且可导出到 Lightroom Classic 清单的照片。")
+            }
+            continuation.yield(.progress(fraction: 0.25, message: "验证照片身份与相对路径…"))
+            let appVersion =
+              Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString"
+              ) as? String ?? "development"
+            let algorithmVersion = Set(assets.map(\.decision.ruleVersion)).sorted().joined(
+              separator: "+"
+            )
+            let result = try CatalogBridgeManifestStore().export(
+              CatalogBridgeExportRequest(
+                rootDirectoryURL: configuration.photoDirectoryURL!,
+                assets: assets,
+                appVersion: appVersion,
+                algorithmVersion: algorithmVersion,
+                skippedCount: max(0, matches.count - assets.count),
+                writeAltitude: configuration.writeAltitude
+              )
+            )
+            continuation.yield(.progress(fraction: 0.9, message: "复读验证单清单完整性…"))
+            let verified = try CatalogBridgeManifestStore().read(from: result.artifactURL)
+            guard verified.assets.count == result.recordCount else {
+              throw WorkflowFailure(message: "位置清单复读记录数不一致。")
+            }
+            var updated = matches
+            let exportedPaths = Set(verified.assets.map(\.relativePath))
+            for index in updated.indices {
+              updated[index].verification =
+                updated[index].identity.map { exportedPaths.contains($0.relativePath) } == true
+                ? .exported : .skipped
+            }
+            let report = ApplicationReport(
+              transactionID: nil,
+              startedAt: startedAt,
+              finishedAt: Date(),
+              appliedCount: result.recordCount,
+              verifiedCount: 0,
+              skippedCount: max(0, matches.count - result.recordCount),
+              failedCount: 0,
+              outputDirectoryURL: configuration.photoDirectoryURL,
+              outputMode: .lightroomCatalogBridge,
+              artifactURL: result.artifactURL
+            )
+            continuation.yield(.progress(fraction: 1, message: "Lightroom Classic 单清单已生成"))
+            continuation.yield(.completed(matches: updated, report: report))
+            continuation.finish()
+            return
+          }
           let requests = try Self.makeWriteRequests(matches: matches, configuration: configuration)
           guard !requests.isEmpty else {
             throw WorkflowFailure(message: "没有已确认且可写入的照片。")
@@ -256,7 +334,8 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
             verifiedCount: applyReport.appliedCount,
             skippedCount: skippedCount,
             failedCount: applyReport.failedCount,
-            outputDirectoryURL: configuration.photoDirectoryURL
+            outputDirectoryURL: configuration.photoDirectoryURL,
+            outputMode: .xmpSidecar
           )
           continuation.yield(.progress(fraction: 1, message: "写入与复读验证完成"))
           continuation.yield(.completed(matches: updated, report: report))
@@ -1167,6 +1246,7 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     prepared: PreparedAsset,
     file: ReadOnlyRawFile,
     strategy: MatchingStrategy,
+    outputMode: OutputMode,
     writeAltitude: Bool,
     trackSourceDigests: [String: String]
   ) -> PhotoMatch {
@@ -1212,7 +1292,8 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     let hasAdjacentXMP = FileManager.default.fileExists(atPath: xmpURL.path)
     let hasExistingGPS = prepared.metadata.gps != nil || hasAdjacentXMP
     let shouldAutomaticallyCheck =
-      confidence == .reliable && coordinate != nil && !hasExistingGPS
+      confidence == .reliable && coordinate != nil
+      && (outputMode == .lightroomCatalogBridge || !hasExistingGPS)
     let evidenceSummary =
       candidate.map { selected in
         let kinds = Set(selected.evidence.map(\.kind.rawValue)).sorted().joined(separator: "+")
@@ -1228,6 +1309,18 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     return PhotoMatch(
       id: prepared.asset.id.rawValue,
       fileURL: file.url,
+      identity: PhotoIdentity(
+        relativePath: prepared.asset.relativePath,
+        fileSize: prepared.metadata.fileSize,
+        exifDateTimeOriginal: prepared.metadata.dateTimeOriginal ?? "",
+        subsecondTimeOriginal: prepared.metadata.subsecondTimeOriginal,
+        offsetTimeOriginal: prepared.metadata.offsetTimeOriginal,
+        cameraMake: prepared.asset.camera?.make,
+        cameraModel: prepared.asset.camera?.model,
+        cameraSerialNumber: prepared.asset.camera?.serialNumber,
+        cameraInternalSerialNumber: prepared.asset.camera?.internalSerialNumber,
+        shutterCount: prepared.asset.shutterCount
+      ),
       capturedAt: prepared.asset.captureTimeUTC,
       previousTrackPoint: previous,
       nextTrackPoint: next,
@@ -1248,6 +1341,7 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
         resolution: resolution,
         candidate: candidate,
         usesConflictRegionFallback: usesConflictRegionFallback,
+        outputMode: outputMode,
         hasExistingGPS: hasExistingGPS,
         hasAdjacentXMP: hasAdjacentXMP
       ),
@@ -1310,6 +1404,7 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     resolution: LocationResolution,
     candidate: LocationCandidate?,
     usesConflictRegionFallback: Bool = false,
+    outputMode: OutputMode,
     hasExistingGPS: Bool,
     hasAdjacentXMP: Bool
   ) -> String {
@@ -1329,7 +1424,9 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
     if let radius = candidate.estimatedRadiusMeters {
       components.append("证据覆盖范围约 \(Int(radius.rounded())) 米（不是传感器精度）")
     }
-    if hasAdjacentXMP {
+    if outputMode == .lightroomCatalogBridge, hasExistingGPS {
+      components.append("已有位置将在 Lightroom 插件预览后按本次清单覆盖")
+    } else if hasAdjacentXMP {
       components.append("相邻 XMP 将在写入前做来源与摘要保护")
     } else if hasExistingGPS {
       components.append("文件已有 GPS，默认不替换")
@@ -1497,6 +1594,97 @@ struct LiveGeoWorkflowService: GeoWorkflowServicing {
           horizontalAccuracyMeters: match.sourceLocationAccuracy.meters
         )
       )
+    }
+  }
+
+  private static func catalogBridgeArtifactURL(configuration: SourceConfiguration) throws -> URL {
+    guard let root = configuration.photoDirectoryURL else {
+      throw WorkflowFailure(message: "未设置照片根目录。")
+    }
+    return root.appendingPathComponent(CatalogBridgeManifest.fileName, isDirectory: false)
+  }
+
+  private static func makeCatalogBridgeAssets(
+    matches: [PhotoMatch],
+    configuration: SourceConfiguration
+  ) throws -> [CatalogBridgeAssetRecord] {
+    try matches.compactMap { match in
+      guard match.isSelectedForWrite, match.isWritableTarget, let coordinate = match.coordinate
+      else {
+        return nil
+      }
+      guard let identity = match.identity, let byteCount = identity.fileSize,
+        byteCount > 0, !identity.exifDateTimeOriginal.isEmpty
+      else {
+        throw WorkflowFailure(message: "\(match.fileName) 缺少生成单清单所需的稳定照片身份。")
+      }
+      let relativePath = identity.relativePath.precomposedStringWithCanonicalMapping
+      let fileIdentity = CatalogBridgeFileIdentity(
+        byteCount: byteCount,
+        exifDateTimeOriginal: identity.exifDateTimeOriginal,
+        subsecondTimeOriginal: identity.subsecondTimeOriginal,
+        offsetTimeOriginal: identity.offsetTimeOriginal,
+        make: identity.cameraMake,
+        model: identity.cameraModel,
+        serialNumber: identity.cameraSerialNumber,
+        internalSerialNumber: identity.cameraInternalSerialNumber,
+        shutterCount: identity.shutterCount
+      )
+      return CatalogBridgeAssetRecord(
+        recordID: try CatalogBridgeManifestStore.stableRecordID(
+          relativePath: relativePath,
+          fileIdentity: fileIdentity
+        ),
+        relativePath: relativePath,
+        assetKind: "proprietaryRaw",
+        fileIdentity: fileIdentity,
+        // 清单 v1 的 ISO-8601 日期编码到秒；亚秒仍由文件身份单独保存。
+        correctedCaptureTimeUTC: Date(
+          timeIntervalSince1970: match.capturedAt.timeIntervalSince1970.rounded(.down)
+        ),
+        location: try GPSMetadata(
+          latitude: coordinate.latitude,
+          longitude: coordinate.longitude,
+          altitude: configuration.writeAltitude ? coordinate.altitude : nil
+        ),
+        decision: CatalogBridgeDecision(
+          confidence: match.confidence.rawValue,
+          method: match.method.rawValue,
+          granularity: match.granularity.rawValue,
+          verification: catalogBridgeVerification(for: match),
+          ruleVersion: match.ruleVersion,
+          estimatedRadiusMeters: match.supportSpreadMeters,
+          temporalDistanceSeconds: match.temporalDistanceSeconds,
+          evidenceSummary: match.evidenceSummary,
+          trackFileSHA256: match.trackFileSHA256
+        )
+      )
+    }
+  }
+
+  private static func catalogBridgeVerification(for match: PhotoMatch)
+    -> CatalogBridgeVerification
+  {
+    if match.method == .manual { return .manual }
+    return match.replacementExplicitlyAuthorized || match.confidence != .reliable
+      ? .userConfirmed : .automatic
+  }
+
+  private static func hasSameCatalogBridgeAssets(
+    _ existing: CatalogBridgeManifest,
+    _ requested: [CatalogBridgeAssetRecord]
+  ) -> Bool {
+    guard existing.assets.count == requested.count else { return false }
+    let existingByPath = Dictionary(
+      uniqueKeysWithValues: existing.assets.map { ($0.relativePath, $0) })
+    return requested.allSatisfy { input in
+      guard let asset = existingByPath[input.relativePath] else { return false }
+      return asset.recordID == input.recordID
+        && asset.assetKind == input.assetKind
+        && asset.fileIdentity == input.fileIdentity
+        && asset.correctedCaptureTimeUTC == input.correctedCaptureTimeUTC
+        && asset.location == input.location
+        && asset.decision == input.decision
     }
   }
 

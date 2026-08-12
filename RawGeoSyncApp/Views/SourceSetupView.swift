@@ -51,7 +51,7 @@ struct SourceSetupView: View {
         }
         .frame(minHeight: 190)
 
-        GroupBox("匹配、时间与写入策略") {
+        GroupBox("匹配、时间与输出策略") {
           Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 16) {
             GridRow {
               SettingLabel(
@@ -117,7 +117,7 @@ struct SourceSetupView: View {
             GridRow {
               SettingLabel(
                 title: "输出方式",
-                detail: "仅为 NEF、ARW 等专有 RAW 创建同名 sidecar",
+                detail: workspace.configuration.outputMode.detail,
                 systemImage: "doc.badge.gearshape"
               )
               Picker("", selection: $workspace.configuration.outputMode) {
@@ -130,6 +130,39 @@ struct SourceSetupView: View {
             }
 
             Divider().gridCellUnsizedAxes(.horizontal)
+
+            if workspace.configuration.outputMode == .lightroomCatalogBridge {
+              GridRow {
+                SettingLabel(
+                  title: "Lightroom Classic 插件",
+                  detail: "插件读取单清单，并在当前 Lightroom 目录中批量应用 GPS",
+                  systemImage: "puzzlepiece.extension"
+                )
+                HStack(spacing: 10) {
+                  Label(
+                    workspace.pluginInstallationStatus.title,
+                    systemImage: workspace.pluginInstallationStatus == .installed
+                      ? "checkmark.circle.fill" : "puzzlepiece.extension"
+                  )
+                  .foregroundStyle(
+                    workspace.pluginInstallationStatus == .installed ? .green : .secondary
+                  )
+                  if let actionTitle = workspace.pluginInstallationStatus.actionTitle {
+                    Button(actionTitle) {
+                      workspace.installOrUpdateLightroomPlugin()
+                    }
+                    .buttonStyle(.bordered)
+                  }
+                  Button("重新检查") {
+                    workspace.refreshPluginInstallationStatus()
+                  }
+                  .buttonStyle(.link)
+                }
+                .frame(maxWidth: 330, alignment: .leading)
+              }
+
+              Divider().gridCellUnsizedAxes(.horizontal)
+            }
 
             GridRow {
               SettingLabel(
@@ -146,15 +179,29 @@ struct SourceSetupView: View {
             GridRow {
               SettingLabel(
                 title: "已有坐标",
-                detail: "新来源可证明更强时自动采用；未知外部 XMP 仍受保护",
+                detail: workspace.configuration.outputMode == .lightroomCatalogBridge
+                  ? "插件会在预览中明确列出冲突；执行后以本次清单位置覆盖"
+                  : "新来源可证明更强时自动采用；未知外部 XMP 仍受保护",
                 systemImage: "shield.checkered"
               )
-              Text("强来源优先，未知来源保护")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: 270, alignment: .leading)
+              Text(
+                workspace.configuration.outputMode == .lightroomCatalogBridge
+                  ? "本次清单覆盖，可在插件中整批撤销" : "强来源优先，未知来源保护"
+              )
+              .foregroundStyle(.secondary)
+              .frame(maxWidth: 270, alignment: .leading)
             }
           }
           .padding(.top, 8)
+        }
+
+        if workspace.configuration.outputMode == .lightroomCatalogBridge {
+          Label(
+            "如果 Lightroom Classic 已开启“自动将更改写入 XMP”，应用目录位置后仍可能由 Lightroom 自行创建 sidecar。",
+            systemImage: "exclamationmark.triangle"
+          )
+          .font(.caption)
+          .foregroundStyle(.orange)
         }
 
         HStack {
@@ -187,6 +234,9 @@ struct SourceSetupView: View {
           cancel: workspace.cancelCurrentOperation
         )
       }
+    }
+    .onAppear {
+      workspace.refreshPluginInstallationStatus()
     }
   }
 

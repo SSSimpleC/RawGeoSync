@@ -1,6 +1,6 @@
 # RawGeoSync
 
-RawGeoSync 是一款离线 macOS 应用。它把相机照片的拍摄时间与 GPX 轨迹进行匹配，在用户预览和确认后，将 GPS 写入 Lightroom 可读取的 XMP sidecar。应用永远不修改相机 RAW 文件。
+RawGeoSync 是一款离线 macOS 应用。它把相机照片的拍摄时间与 GPX 轨迹进行匹配，在用户预览和确认后生成一份位置清单，再由配套的 Lightroom Classic 插件批量写入 Catalog。兼容模式仍可写入 Lightroom 可读取的 XMP sidecar；两种模式都永远不修改相机 RAW 文件。
 
 ## 核心能力
 
@@ -9,18 +9,19 @@ RawGeoSync 是一款离线 macOS 应用。它把相机照片的拍摄时间与 G
 - 支持 IANA 时区和相机时钟秒级偏移。
 - 区分可靠匹配、待确认匹配、停留候选和缺轨。
 - 在表格与地图上批量复核位置。
-- 原子创建或合并同名 XMP，保留 Lightroom 已有编辑。
-- 支持幂等写入、冲突检测、事务记录和安全撤销。
+- 默认每个照片根目录只生成一个 `RawGeoSync.locations.jsonl`，避免逐照片 sidecar 带来的文件数量翻倍。
+- 配套 Lightroom Classic 插件支持预检、批量写入、复读验证和跨重启整批撤销。
+- 兼容模式继续原子创建或合并同名 XMP，保留 Lightroom 已有编辑。
 
 v0.2 的设计在此基础上引入可追溯的多来源证据链：照片自带 GPS、GPX、相机定位、同一拍摄 burst、照片序列、跨相机锚点和活动区都可以提供候选。弱候选只补足缺失，不能覆盖强候选；冲突、传播跳数和用户确认会保留在本地事务记录中。详细规则见 [ADR 0002](Docs/Decisions/0002-matching-v2.md)。
 
 ## 数据安全原则
 
-- RAW 只读，写入接口只接受 XMP sidecar 目标。
+- RAW 只读；默认只写单一桥接清单和 Lightroom Catalog，兼容接口只接受 XMP sidecar 目标。
 - 分析默认为 dry run；只有用户确认后才写入。
 - 不上传照片、轨迹、坐标或日志，不做反向地理编码。
 - MapKit 地图仅在地图可见时连接 Apple 获取地图瓦片。
-- 真实 GPX、RAW 和本地测试副本都被 Git 忽略。
+- 真实 GPX、RAW、位置清单和本地测试副本都被 Git 忽略。
 
 ## 开发环境
 
@@ -28,6 +29,7 @@ v0.2 的设计在此基础上引入可追溯的多来源证据链：照片自带
 - Xcode 26.3+
 - Swift 6（严格并发检查）
 - ExifTool 固定随应用资源分发，不要求用户安装 Homebrew
+- Lightroom Classic 15.4.1+（使用默认 Catalog Bridge 时）
 
 首次构建前，确保活动开发目录为：
 
@@ -64,7 +66,17 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 ## 使用建议
 
-推荐在 Lightroom 导入或修改 sidecar 前执行 RawGeoSync。若照片或 XMP 在预览后发生变化，应用会把它标记为冲突并跳过。已有不同 GPS 默认不会覆盖。
+默认工作流：
+
+1. 在 RawGeoSync 选择 GPX 和照片根目录，分析并勾选要应用位置的照片。
+2. 生成照片根目录中的 `RawGeoSync.locations.jsonl`。
+3. 先把这些照片导入 Lightroom Classic。
+4. 安装随 App 提供的 RawGeoSync 插件，在“图库 → 插件增效工具”中导入清单。
+5. 检查插件预览后应用；不同的现有 GPS 会按本次清单覆盖，离线照片会跳过。
+
+Lightroom 开启“自动将更改写入 XMP”时，Lightroom 自己仍可能创建 sidecar；插件无法通过公开 SDK 可靠关闭或检测此设置。要保持每个照片目录只有一份清单，请在 Lightroom 中关闭该选项。
+
+传统 XMP 模式建议在 Lightroom 导入或修改 sidecar 前执行。若照片或 XMP 在预览后发生变化，应用会把它标记为冲突并跳过。
 
 分析完成后，只有“可靠”结果默认勾选写入；停留候选、最近点和其他待确认结果必须按区间复核并主动勾选。写入前应用会展示创建、更新、已应用与冲突数量。撤销仅在 sidecar 未被 Lightroom 等程序继续修改时执行，避免抹掉后续编辑。
 
@@ -92,6 +104,8 @@ RawGeoSync 使用 MIT License。内置 ExifTool 及其 Perl 库遵循上游各�
 - [安全策略](SECURITY.md)
 - [隐私说明](Docs/PRIVACY.md)
 - [测试与验收](Docs/TESTING.md)
+- [Lightroom Catalog Bridge 使用指南](Docs/LIGHTROOM_BRIDGE.md)
 - [发布清单](Docs/RELEASE.md)
 - [匹配 v2 决策](Docs/Decisions/0002-matching-v2.md)
+- [Lightroom Catalog Bridge 决策](Docs/Decisions/0003-lightroom-catalog-bridge.md)
 - [更新日志](CHANGELOG.md)

@@ -20,7 +20,7 @@ enum WorkflowStage: Int, CaseIterable, Identifiable, Sendable {
     switch self {
     case .sources: "选择轨迹与照片"
     case .analysis: "预览并修正匹配"
-    case .results: "验证写入结果"
+    case .results: "查看输出结果"
     }
   }
 
@@ -41,7 +41,7 @@ struct SourceConfiguration: Equatable, Sendable {
   var cameraClockOffsetsByID: [String: Int] = [:]
   var writeAltitude = false
   var matchingStrategy: MatchingStrategy = .coverage
-  var outputMode: OutputMode = .xmpSidecar
+  var outputMode: OutputMode = .lightroomCatalogBridge
 
   var isReady: Bool { gpxSourceURL != nil && photoDirectoryURL != nil }
 
@@ -78,10 +78,33 @@ enum MatchingStrategy: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum OutputMode: String, CaseIterable, Identifiable, Sendable {
+  case lightroomCatalogBridge
   case xmpSidecar
 
   var id: String { rawValue }
-  var title: String { "专有 RAW 的 XMP Sidecar" }
+
+  var title: String {
+    switch self {
+    case .lightroomCatalogBridge: "Lightroom Classic 单清单"
+    case .xmpSidecar: "XMP Sidecar（兼容模式）"
+    }
+  }
+
+  var detail: String {
+    switch self {
+    case .lightroomCatalogBridge:
+      "在照片目录只生成一份位置清单，再由 Lightroom Classic 插件批量写入目录"
+    case .xmpSidecar:
+      "为每张专有 RAW 创建或更新同名 XMP；适合不依赖 Lightroom 目录的工作流"
+    }
+  }
+
+  var actionTitle: String {
+    switch self {
+    case .lightroomCatalogBridge: "导出清单"
+    case .xmpSidecar: "写入 XMP"
+    }
+  }
 }
 
 struct GeoCoordinate: Hashable, Codable, Sendable {
@@ -209,6 +232,7 @@ enum MatchMethod: String, Sendable {
 
 enum VerificationState: String, Sendable {
   case pending
+  case exported
   case verified
   case skipped
   case failed
@@ -217,12 +241,26 @@ enum VerificationState: String, Sendable {
   var title: String {
     switch self {
     case .pending: "等待应用"
+    case .exported: "已写入清单"
     case .verified: "已复读验证"
     case .skipped: "已跳过"
     case .failed: "失败"
     case .undone: "已撤销"
     }
   }
+}
+
+struct PhotoIdentity: Hashable, Sendable {
+  var relativePath: String
+  var fileSize: Int64?
+  var exifDateTimeOriginal: String
+  var subsecondTimeOriginal: String?
+  var offsetTimeOriginal: String?
+  var cameraMake: String?
+  var cameraModel: String?
+  var cameraSerialNumber: String?
+  var cameraInternalSerialNumber: String?
+  var shutterCount: Int?
 }
 
 enum SourceLocationAccuracy: Hashable, Sendable {
@@ -247,6 +285,7 @@ enum SourceLocationAccuracy: Hashable, Sendable {
 struct PhotoMatch: Identifiable, Hashable, Sendable {
   let id: String
   var fileURL: URL
+  var identity: PhotoIdentity? = nil
   var capturedAt: Date
   var previousTrackPoint: GeoCoordinate?
   var nextTrackPoint: GeoCoordinate?
@@ -342,7 +381,11 @@ struct ApplicationReport: Sendable {
   var skippedCount: Int
   var failedCount: Int
   var outputDirectoryURL: URL?
+  var outputMode: OutputMode = .xmpSidecar
+  var artifactURL: URL? = nil
   var isUndone = false
+
+  var canUndo: Bool { outputMode == .xmpSidecar && transactionID != nil && !isUndone }
 }
 
 struct WritePreview: Identifiable, Sendable {
@@ -353,12 +396,34 @@ struct WritePreview: Identifiable, Sendable {
   var alreadyAppliedCount: Int
   var conflictCount: Int
   var conflictFileURLs: Set<URL> = []
+  var outputMode: OutputMode = .xmpSidecar
+  var artifactURL: URL? = nil
 
   var writableCount: Int { createCount + updateCount }
 
+  var title: String {
+    switch outputMode {
+    case .lightroomCatalogBridge: "确认单清单导出计划"
+    case .xmpSidecar: "确认 XMP 写入计划"
+    }
+  }
+
+  var confirmTitle: String {
+    switch outputMode {
+    case .lightroomCatalogBridge: "确认导出"
+    case .xmpSidecar: "确认写入"
+    }
+  }
+
   var message: String {
-    "将新建 \(createCount) 个、更新 \(updateCount) 个 XMP；"
-      + "\(alreadyAppliedCount) 个已包含相同位置，\(conflictCount) 个冲突将跳过。"
+    switch outputMode {
+    case .lightroomCatalogBridge:
+      "将把 \(writableCount) 张已勾选照片写入一份 Lightroom Classic 位置清单；"
+        + "\(alreadyAppliedCount) 张内容未变化，\(conflictCount) 张因身份冲突将跳过。"
+    case .xmpSidecar:
+      "将新建 \(createCount) 个、更新 \(updateCount) 个 XMP；"
+        + "\(alreadyAppliedCount) 个已包含相同位置，\(conflictCount) 个冲突将跳过。"
+    }
   }
 }
 
